@@ -77,13 +77,6 @@ st.markdown(
         margin-bottom: 16px;
     }
 
-    .stance-box {
-        border-radius: 12px;
-        padding: 14px 16px;
-        margin-bottom: 8px;
-        border: 1px solid #eeeeee;
-    }
-
     .small-text {
         color: #6b7280;
         font-size: 0.85rem;
@@ -149,78 +142,41 @@ def load_excel(
         sheet_name="ALL",
     )
 
-    # --------------------------------------------------------
-    # DATE
-    # --------------------------------------------------------
+    if "Date" in df.columns:
 
-    if (
-        "Date"
-        in df.columns
-    ):
-
-        df[
-            "Date"
-        ] = pd.to_datetime(
-            df[
-                "Date"
-            ],
+        df["Date"] = pd.to_datetime(
+            df["Date"],
             errors="coerce",
         )
-
-    # --------------------------------------------------------
-    # BOOL
-    # --------------------------------------------------------
 
     for column in [
         "Matched",
         "Body_Fetched",
     ]:
 
-        if (
-            column
-            in df.columns
-        ):
+        if column in df.columns:
 
-            df[
-                column
-            ] = (
-                df[
-                    column
-                ]
+            df[column] = (
+                df[column]
                 .fillna(False)
                 .astype(bool)
             )
-
-    # --------------------------------------------------------
-    # NUMERIC
-    # --------------------------------------------------------
 
     numeric_columns = [
         "Relevance_Score",
         "Hawk_Dove_Score",
         "Hawkish_Score",
         "Dovish_Score",
-        "Confidence",
         "Body_Length",
     ]
 
     for column in numeric_columns:
 
-        if (
-            column
-            not in df.columns
-        ):
+        if column not in df.columns:
             continue
 
-        if column == "Confidence":
-            continue
-
-        df[
-            column
-        ] = pd.to_numeric(
-            df[
-                column
-            ],
+        df[column] = pd.to_numeric(
+            df[column],
             errors="coerce",
         )
 
@@ -259,7 +215,7 @@ def run_pipeline():
 # ============================================================
 
 def safe_text(
-    value
+    value,
 ):
 
     if pd.isna(
@@ -340,7 +296,6 @@ def current_stance_from_score(
     if pd.isna(
         score
     ):
-
         return "UNKNOWN"
 
     if score >= 4:
@@ -366,17 +321,56 @@ def build_speaker_summary(
     df
 ):
     """
-    현재 성향:
-        최근 HIGH/MEDIUM 중요 발언 최대 5개
-        Hawk_Dove_Score 평균
+    위원별 현재 성향 계산.
+
+    원칙
+    ----------------------------------------------------------
+    1. UNMATCHED는 원본 데이터에서 삭제하지 않는다.
+    2. Speaker Summary에서는 제외한다.
+    3. 현재 성향은 최근 HIGH/MEDIUM 중요 발언 최대 5개
+       Hawk_Dove_Score 평균으로 계산한다.
     """
+
+    work_df = (
+        df.copy()
+    )
+
+    if (
+        "Speaker"
+        not in work_df.columns
+    ):
+        return pd.DataFrame()
+
+    work_df["Speaker"] = (
+        work_df["Speaker"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    # --------------------------------------------------------
+    # UNMATCHED / 빈 Speaker 제외
+    # --------------------------------------------------------
+
+    work_df = (
+        work_df[
+            (
+                work_df["Speaker"] != ""
+            )
+            &
+            (
+                work_df["Speaker"]
+                .str.upper()
+                != "UNMATCHED"
+            )
+        ]
+        .copy()
+    )
 
     rows = []
 
     speakers = (
-        df[
-            "Speaker"
-        ]
+        work_df["Speaker"]
         .dropna()
         .unique()
     )
@@ -384,10 +378,8 @@ def build_speaker_summary(
     for speaker in speakers:
 
         speaker_df = (
-            df[
-                df[
-                    "Speaker"
-                ]
+            work_df[
+                work_df["Speaker"]
                 == speaker
             ]
             .copy()
@@ -402,14 +394,12 @@ def build_speaker_summary(
         )
 
         # ----------------------------------------------------
-        # HIGH / MEDIUM
+        # 최근 HIGH / MEDIUM
         # ----------------------------------------------------
 
         important = (
             speaker_df[
-                speaker_df[
-                    "Relevance"
-                ]
+                speaker_df["Relevance"]
                 .isin(
                     [
                         "HIGH",
@@ -437,7 +427,7 @@ def build_speaker_summary(
             )
 
         # ----------------------------------------------------
-        # SCORE
+        # CURRENT SCORE
         # ----------------------------------------------------
 
         scores = pd.to_numeric(
@@ -466,7 +456,7 @@ def build_speaker_summary(
         )
 
         # ----------------------------------------------------
-        # LATEST
+        # LATEST DATE
         # ----------------------------------------------------
 
         valid_dates = (
@@ -478,9 +468,15 @@ def build_speaker_summary(
 
         latest_date = (
             valid_dates.max()
-            if len(valid_dates)
+            if len(
+                valid_dates
+            )
             else pd.NaT
         )
+
+        # ----------------------------------------------------
+        # LATEST TITLE
+        # ----------------------------------------------------
 
         latest_title = ""
 
@@ -498,7 +494,7 @@ def build_speaker_summary(
             )
 
         # ----------------------------------------------------
-        # ROLE / FED
+        # FED
         # ----------------------------------------------------
 
         fed = ""
@@ -518,13 +514,14 @@ def build_speaker_summary(
             if len(
                 fed_values
             ):
+
                 fed = (
                     fed_values.iloc[0]
                 )
 
         if not fed:
 
-            fed_values = (
+            source_values = (
                 speaker_df[
                     "Source"
                 ]
@@ -532,11 +529,16 @@ def build_speaker_summary(
             )
 
             if len(
-                fed_values
+                source_values
             ):
+
                 fed = (
-                    fed_values.iloc[0]
+                    source_values.iloc[0]
                 )
+
+        # ----------------------------------------------------
+        # ROLE
+        # ----------------------------------------------------
 
         role = ""
 
@@ -555,6 +557,7 @@ def build_speaker_summary(
             if len(
                 role_values
             ):
+
                 role = (
                     role_values.iloc[0]
                 )
@@ -650,6 +653,9 @@ def build_speaker_summary(
         rows
     )
 
+    if result.empty:
+        return result
+
     result = (
         result.sort_values(
             [
@@ -677,7 +683,6 @@ def stance_background(
 
     colors = {
 
-        # 강한 hawkish
         "HAWKISH":
             (
                 "background-color: #e57373;"
@@ -685,7 +690,6 @@ def stance_background(
                 "font-weight: 700;"
             ),
 
-        # 약한 hawkish
         "NEUTRAL_HAWKISH":
             (
                 "background-color: #ffcdd2;"
@@ -693,7 +697,6 @@ def stance_background(
                 "font-weight: 650;"
             ),
 
-        # neutral
         "NEUTRAL":
             (
                 "background-color: #eeeeee;"
@@ -701,7 +704,6 @@ def stance_background(
                 "font-weight: 550;"
             ),
 
-        # 약한 dovish
         "NEUTRAL_DOVISH":
             (
                 "background-color: #c8e6c9;"
@@ -709,7 +711,6 @@ def stance_background(
                 "font-weight: 650;"
             ),
 
-        # 강한 dovish
         "DOVISH":
             (
                 "background-color: #66bb6a;"
@@ -878,10 +879,6 @@ with st.sidebar:
         f"Latest: {latest_file.name}"
     )
 
-    # --------------------------------------------------------
-    # UPDATE
-    # --------------------------------------------------------
-
     if st.button(
         "🔄 데이터 업데이트",
         use_container_width=True,
@@ -1020,12 +1017,25 @@ with st.sidebar:
     # --------------------------------------------------------
 
     speaker_options = sorted(
-        df[
-            "Speaker"
+        [
+            value
+            for value in (
+                df[
+                    "Speaker"
+                ]
+                .dropna()
+                .astype(str)
+                .str.strip()
+                .unique()
+                .tolist()
+            )
+            if (
+                value
+                and
+                value.upper()
+                != "UNMATCHED"
+            )
         ]
-        .dropna()
-        .unique()
-        .tolist()
     )
 
     selected_speakers = (
@@ -1036,7 +1046,7 @@ with st.sidebar:
     )
 
     # --------------------------------------------------------
-    # FED
+    # SOURCE
     # --------------------------------------------------------
 
     source_options = sorted(
@@ -1077,10 +1087,6 @@ with st.sidebar:
         )
     )
 
-    # --------------------------------------------------------
-    # SEARCH
-    # --------------------------------------------------------
-
     keyword = (
         st.text_input(
             "Search",
@@ -1099,50 +1105,57 @@ filtered = (
     df.copy()
 )
 
-
 if selected_relevance:
 
-    filtered = filtered[
+    filtered = (
         filtered[
-            "Relevance"
-        ].isin(
-            selected_relevance
-        )
-    ]
-
+            filtered[
+                "Relevance"
+            ]
+            .isin(
+                selected_relevance
+            )
+        ]
+    )
 
 if selected_hd:
 
-    filtered = filtered[
+    filtered = (
         filtered[
-            "Hawk_Dove"
-        ].isin(
-            selected_hd
-        )
-    ]
-
+            filtered[
+                "Hawk_Dove"
+            ]
+            .isin(
+                selected_hd
+            )
+        ]
+    )
 
 if selected_speakers:
 
-    filtered = filtered[
+    filtered = (
         filtered[
-            "Speaker"
-        ].isin(
-            selected_speakers
-        )
-    ]
-
+            filtered[
+                "Speaker"
+            ]
+            .isin(
+                selected_speakers
+            )
+        ]
+    )
 
 if selected_sources:
 
-    filtered = filtered[
+    filtered = (
         filtered[
-            "Source"
-        ].isin(
-            selected_sources
-        )
-    ]
-
+            filtered[
+                "Source"
+            ]
+            .isin(
+                selected_sources
+            )
+        ]
+    )
 
 if selected_topics:
 
@@ -1172,7 +1185,6 @@ if selected_topics:
             topic_mask
         ]
     )
-
 
 if keyword:
 
@@ -1244,16 +1256,18 @@ if keyword:
     )
 
 
-filtered = filtered.sort_values(
-    by=[
-        "Date",
-        "Relevance_Score",
-    ],
-    ascending=[
-        False,
-        False,
-    ],
-    na_position="last",
+filtered = (
+    filtered.sort_values(
+        by=[
+            "Date",
+            "Relevance_Score",
+        ],
+        ascending=[
+            False,
+            False,
+        ],
+        na_position="last",
+    )
 )
 
 
@@ -1375,225 +1389,217 @@ with tab1:
         )
     )
 
-    # --------------------------------------------------------
-    # COUNTS
-    # --------------------------------------------------------
-
-    hawkish_members = (
-        speaker_df[
-            speaker_df[
-                "Current_Stance"
-            ]
-            .isin(
-                [
-                    "HAWKISH",
-                    "NEUTRAL_HAWKISH",
-                ]
-            )
-        ]
-    )
-
-    neutral_members = (
-        speaker_df[
-            speaker_df[
-                "Current_Stance"
-            ]
-            == "NEUTRAL"
-        ]
-    )
-
-    dovish_members = (
-        speaker_df[
-            speaker_df[
-                "Current_Stance"
-            ]
-            .isin(
-                [
-                    "DOVISH",
-                    "NEUTRAL_DOVISH",
-                ]
-            )
-        ]
-    )
-
-    c1, c2, c3 = (
-        st.columns(3)
-    )
-
-    c1.metric(
-        "🔴 Hawkish 계열",
-        len(
-            hawkish_members
-        ),
-    )
-
-    c2.metric(
-        "⚪ Neutral",
-        len(
-            neutral_members
-        ),
-    )
-
-    c3.metric(
-        "🟢 Dovish 계열",
-        len(
-            dovish_members
-        ),
-    )
-
-    st.divider()
-
-    # --------------------------------------------------------
-    # SUMMARY TABLE
-    # --------------------------------------------------------
-
-    st.markdown(
-        "### Speaker Summary"
-    )
-
-    display_df = (
-        speaker_df[
-            [
-                "Speaker",
-                "Fed",
-                "Current_Stance",
-                "Current_Score",
-                "Recent_Sample",
-                "Latest_Date",
-                "Articles",
-                "High",
-                "Hawkish_Count",
-                "Neutral_Count",
-                "Dovish_Count",
-                "Latest_Remark",
-            ]
-        ]
-        .copy()
-    )
-
-    display_df = (
-        display_df.rename(
-            columns={
-
-                "Speaker":
-                    "위원",
-
-                "Fed":
-                    "소속",
-
-                "Current_Stance":
-                    "현재 성향",
-
-                "Current_Score":
-                    "현재 Score",
-
-                "Recent_Sample":
-                    "최근 분석건수",
-
-                "Latest_Date":
-                    "최근 발언일",
-
-                "Articles":
-                    "전체 발언",
-
-                "High":
-                    "HIGH",
-
-                "Hawkish_Count":
-                    "Hawk 계열",
-
-                "Neutral_Count":
-                    "Neutral",
-
-                "Dovish_Count":
-                    "Dove 계열",
-
-                "Latest_Remark":
-                    "최근 발언",
-            }
-        )
-    )
-
-    styled_df = (
-        display_df
-        .style
-        .map(
-            stance_background,
-            subset=[
-                "현재 성향"
-            ],
-        )
-        .format(
-            {
-                "현재 Score":
-                    "{:.2f}",
-            }
-        )
-    )
-
-    st.dataframe(
-        styled_df,
-        use_container_width=True,
-        hide_index=True,
-        height=600,
-        column_config={
-
-            "최근 발언일":
-                st.column_config.DateColumn(
-                    "최근 발언일",
-                    format="YYYY-MM-DD",
-                ),
-
-            "위원":
-                st.column_config.TextColumn(
-                    "위원",
-                    width="medium",
-                ),
-
-            "소속":
-                st.column_config.TextColumn(
-                    "소속",
-                    width="medium",
-                ),
-
-            "현재 성향":
-                st.column_config.TextColumn(
-                    "현재 성향",
-                    width="medium",
-                ),
-
-            "현재 Score":
-                st.column_config.NumberColumn(
-                    "현재 Score",
-                    format="%.2f",
-                ),
-
-            "최근 발언":
-                st.column_config.TextColumn(
-                    "최근 발언",
-                    width="large",
-                ),
-        },
-    )
-
-    st.caption(
-        """
-        현재 Score > 0이면 Hawkish 방향,
-        현재 Score < 0이면 Dovish 방향입니다.
-        """
-    )
-
-    # --------------------------------------------------------
-    # MEMBER DETAIL
-    # --------------------------------------------------------
-
-    st.divider()
-
-    st.subheader(
-        "위원별 상세"
-    )
-
     if not speaker_df.empty:
+
+        hawkish_members = (
+            speaker_df[
+                speaker_df[
+                    "Current_Stance"
+                ]
+                .isin(
+                    [
+                        "HAWKISH",
+                        "NEUTRAL_HAWKISH",
+                    ]
+                )
+            ]
+        )
+
+        neutral_members = (
+            speaker_df[
+                speaker_df[
+                    "Current_Stance"
+                ]
+                == "NEUTRAL"
+            ]
+        )
+
+        dovish_members = (
+            speaker_df[
+                speaker_df[
+                    "Current_Stance"
+                ]
+                .isin(
+                    [
+                        "DOVISH",
+                        "NEUTRAL_DOVISH",
+                    ]
+                )
+            ]
+        )
+
+        c1, c2, c3 = (
+            st.columns(3)
+        )
+
+        c1.metric(
+            "🔴 Hawkish 계열",
+            len(
+                hawkish_members
+            ),
+        )
+
+        c2.metric(
+            "⚪ Neutral",
+            len(
+                neutral_members
+            ),
+        )
+
+        c3.metric(
+            "🟢 Dovish 계열",
+            len(
+                dovish_members
+            ),
+        )
+
+        st.divider()
+
+        st.markdown(
+            "### Speaker Summary"
+        )
+
+        display_df = (
+            speaker_df[
+                [
+                    "Speaker",
+                    "Fed",
+                    "Current_Stance",
+                    "Current_Score",
+                    "Recent_Sample",
+                    "Latest_Date",
+                    "Articles",
+                    "High",
+                    "Hawkish_Count",
+                    "Neutral_Count",
+                    "Dovish_Count",
+                    "Latest_Remark",
+                ]
+            ]
+            .copy()
+        )
+
+        display_df = (
+            display_df.rename(
+                columns={
+
+                    "Speaker":
+                        "위원",
+
+                    "Fed":
+                        "소속",
+
+                    "Current_Stance":
+                        "현재 성향",
+
+                    "Current_Score":
+                        "현재 Score",
+
+                    "Recent_Sample":
+                        "최근 분석건수",
+
+                    "Latest_Date":
+                        "최근 발언일",
+
+                    "Articles":
+                        "전체 발언",
+
+                    "High":
+                        "HIGH",
+
+                    "Hawkish_Count":
+                        "Hawk 계열",
+
+                    "Neutral_Count":
+                        "Neutral",
+
+                    "Dovish_Count":
+                        "Dove 계열",
+
+                    "Latest_Remark":
+                        "최근 발언",
+                }
+            )
+        )
+
+        styled_df = (
+            display_df
+            .style
+            .map(
+                stance_background,
+                subset=[
+                    "현재 성향"
+                ],
+            )
+            .format(
+                {
+                    "현재 Score":
+                        "{:.2f}",
+                }
+            )
+        )
+
+        st.dataframe(
+            styled_df,
+            use_container_width=True,
+            hide_index=True,
+            height=600,
+            column_config={
+
+                "최근 발언일":
+                    st.column_config.DateColumn(
+                        "최근 발언일",
+                        format="YYYY-MM-DD",
+                    ),
+
+                "위원":
+                    st.column_config.TextColumn(
+                        "위원",
+                        width="medium",
+                    ),
+
+                "소속":
+                    st.column_config.TextColumn(
+                        "소속",
+                        width="medium",
+                    ),
+
+                "현재 성향":
+                    st.column_config.TextColumn(
+                        "현재 성향",
+                        width="medium",
+                    ),
+
+                "현재 Score":
+                    st.column_config.NumberColumn(
+                        "현재 Score",
+                        format="%.2f",
+                    ),
+
+                "최근 발언":
+                    st.column_config.TextColumn(
+                        "최근 발언",
+                        width="large",
+                    ),
+            },
+        )
+
+        st.caption(
+            """
+            현재 Score > 0이면 Hawkish 방향,
+            현재 Score < 0이면 Dovish 방향입니다.
+            """
+        )
+
+        # ====================================================
+        # MEMBER DETAIL
+        # ====================================================
+
+        st.divider()
+
+        st.subheader(
+            "위원별 상세"
+        )
 
         selected_member = (
             st.selectbox(
@@ -1713,6 +1719,78 @@ with tab1:
                     ),
             },
         )
+
+    # ========================================================
+    # UNMATCHED DEBUG
+    # ========================================================
+
+    st.divider()
+
+    unmatched_df = (
+        df[
+            df[
+                "Speaker"
+            ]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .str.upper()
+            .eq(
+                "UNMATCHED"
+            )
+        ]
+        .copy()
+    )
+
+    if not unmatched_df.empty:
+
+        with st.expander(
+            f"⚠️ UNMATCHED 발언 확인 ({len(unmatched_df)}건)"
+        ):
+
+            st.caption(
+                """
+                인물 매칭에 실패한 자료입니다.
+                Speaker Summary에는 포함하지 않지만
+                원본 데이터에서는 삭제하지 않습니다.
+                """
+            )
+
+            unmatched_columns = [
+                column
+                for column in [
+                    "Date",
+                    "Source",
+                    "Title",
+                    "Relevance",
+                    "Topics",
+                    "URL",
+                ]
+                if column
+                in unmatched_df.columns
+            ]
+
+            st.dataframe(
+                unmatched_df[
+                    unmatched_columns
+                ],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+
+                    "Date":
+                        st.column_config.DateColumn(
+                            "Date",
+                            format="YYYY-MM-DD",
+                        ),
+
+                    "URL":
+                        st.column_config.LinkColumn(
+                            "원문",
+                            display_text="Open",
+                        ),
+                },
+            )
 
 
 # ============================================================
@@ -1847,13 +1925,12 @@ with tab2:
                 f"**{title}**"
             )
 
-            c1, c2, c3, c4 = (
+            c1, c2, c3 = (
                 st.columns(
                     [
                         1,
                         1,
                         1,
-                        3,
                     ]
                 )
             )
@@ -1986,21 +2063,23 @@ with tab3:
         )
     )
 
-    chart_df = (
-        speaker_summary_for_chart[
-            [
-                "Speaker",
-                "Current_Score",
-            ]
-        ]
-        .set_index(
-            "Speaker"
-        )
-    )
+    if not speaker_summary_for_chart.empty:
 
-    st.bar_chart(
-        chart_df
-    )
+        chart_df = (
+            speaker_summary_for_chart[
+                [
+                    "Speaker",
+                    "Current_Score",
+                ]
+            ]
+            .set_index(
+                "Speaker"
+            )
+        )
+
+        st.bar_chart(
+            chart_df
+        )
 
     st.caption(
         """
