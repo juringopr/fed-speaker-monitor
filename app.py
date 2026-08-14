@@ -42,7 +42,17 @@ FINAL_EVENTS_PATH = (
     / "final_events.json"
 )
 
-PIPELINE_FILE = (
+OFFICIAL_PIPELINE_FILE = (
+    PROJECT_ROOT
+    / "official_pipeline.py"
+)
+
+INFOMAX_PIPELINE_FILE = (
+    PROJECT_ROOT
+    / "infomax_pipeline.py"
+)
+
+MERGE_PIPELINE_FILE = (
     PROJECT_ROOT
     / "merge_pipeline.py"
 )
@@ -104,7 +114,6 @@ try:
 
 except Exception:
     pass
-
 
 
 # ============================================================
@@ -230,6 +239,7 @@ div[data-testid="stMetric"] {
     border-radius: 10px;
     background: white;
 }
+
 /* 위원별 상세 metric 제목 */
 div[data-testid="stMetric"] label {
     font-size: 13px !important;
@@ -239,6 +249,7 @@ div[data-testid="stMetric"] label {
 div[data-testid="stMetricValue"] {
     font-size: 18px !important;
 }
+
 </style>
 """,
     unsafe_allow_html=True,
@@ -489,7 +500,6 @@ def load_final_events(
         )
 
     except Exception:
-
         return []
 
 
@@ -498,21 +508,170 @@ def load_final_events(
 # ============================================================
 
 def run_pipeline():
+    """
+    Streamlit Cloud에는 runtime cache가 없을 수 있으므로
 
-    return subprocess.run(
-        [
-            sys.executable,
-            str(
-                PIPELINE_FILE
+    1. official_pipeline.py
+       -> official_cache.json 생성/갱신
+
+    2. infomax_pipeline.py
+       -> infomax_cache.json 생성/갱신
+
+    3. merge_pipeline.py
+       -> 두 cache 병합
+       -> final_events.json / Excel 생성
+
+    순서로 실행한다.
+    """
+
+    pipeline_files = [
+        OFFICIAL_PIPELINE_FILE,
+        INFOMAX_PIPELINE_FILE,
+        MERGE_PIPELINE_FILE,
+    ]
+
+    combined_stdout = []
+    combined_stderr = []
+
+    for pipeline_file in pipeline_files:
+
+        if not pipeline_file.exists():
+
+            error_message = (
+                f"파이프라인 파일이 없습니다: "
+                f"{pipeline_file}"
+            )
+
+            combined_stderr.append(
+                error_message
+            )
+
+            return subprocess.CompletedProcess(
+                args=[
+                    str(pipeline_file)
+                ],
+                returncode=1,
+                stdout="\n".join(
+                    combined_stdout
+                ),
+                stderr="\n".join(
+                    combined_stderr
+                ),
+            )
+
+        print()
+        print(
+            "=" * 80
+        )
+        print(
+            f"RUNNING: {pipeline_file.name}"
+        )
+        print(
+            "=" * 80
+        )
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(
+                    pipeline_file
+                ),
+            ],
+            cwd=str(
+                PROJECT_ROOT
             ),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+
+        stdout_text = (
+            result.stdout
+            or
+            ""
+        )
+
+        stderr_text = (
+            result.stderr
+            or
+            ""
+        )
+
+        combined_stdout.append(
+            (
+                f"\n"
+                f"{'=' * 80}\n"
+                f"{pipeline_file.name}\n"
+                f"{'=' * 80}\n"
+                f"{stdout_text}"
+            )
+        )
+
+        if stderr_text:
+
+            combined_stderr.append(
+                (
+                    f"\n"
+                    f"{'=' * 80}\n"
+                    f"{pipeline_file.name} STDERR\n"
+                    f"{'=' * 80}\n"
+                    f"{stderr_text}"
+                )
+            )
+
+        # ----------------------------------------------------
+        # 한 단계라도 실패하면 다음 단계 실행하지 않음
+        # ----------------------------------------------------
+
+        if (
+            result.returncode
+            != 0
+        ):
+
+            return subprocess.CompletedProcess(
+                args=[
+                    str(
+                        pipeline_file
+                    )
+                ],
+                returncode=(
+                    result.returncode
+                ),
+                stdout="\n".join(
+                    combined_stdout
+                ),
+                stderr=(
+                    "\n".join(
+                        combined_stderr
+                    )
+                    or
+                    (
+                        f"{pipeline_file.name} "
+                        f"실행 중 오류가 발생했습니다."
+                    )
+                ),
+            )
+
+    # --------------------------------------------------------
+    # 전부 성공
+    # --------------------------------------------------------
+
+    return subprocess.CompletedProcess(
+        args=[
+            str(
+                file
+            )
+            for file
+            in pipeline_files
         ],
-        cwd=str(
-            PROJECT_ROOT
+        returncode=0,
+        stdout="\n".join(
+            combined_stdout
         ),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+        stderr="\n".join(
+            combined_stderr
+        ),
     )
 
 
@@ -1009,10 +1168,6 @@ def build_speaker_summary(
             "Is_Voter":
                 is_voter,
 
-            # ---------------------------------------------
-            # MODEL
-            # ---------------------------------------------
-
             "Model_Stance":
                 event.get(
                     "model_stance"
@@ -1040,10 +1195,6 @@ def build_speaker_summary(
                 )
                 or
                 0,
-
-            # ---------------------------------------------
-            # RECENT
-            # ---------------------------------------------
 
             "Recent_Signal":
                 event.get(
@@ -1079,10 +1230,6 @@ def build_speaker_summary(
                 )
                 or
                 0,
-
-            # ---------------------------------------------
-            # FINAL
-            # ---------------------------------------------
 
             "Final_Stance":
                 event.get(
@@ -1133,10 +1280,6 @@ def build_speaker_summary(
                         "final_reason"
                     )
                 ),
-
-            # ---------------------------------------------
-            # MOMENTUM
-            # ---------------------------------------------
 
             "Momentum_Label":
                 event.get(
@@ -1310,7 +1453,6 @@ def build_recent_news(
                     or
                     "",
 
-                # ★ 기존 consensus_label 아님
                 "final_stance":
                     event.get(
                         "final_stance"
@@ -1405,7 +1547,6 @@ def build_recent_news(
                 ""
             )
 
-            # News 자체 성향이 아니라 최종 판단
             stance = (
                 member_meta[
                     member
@@ -1668,8 +1809,8 @@ with st.sidebar:
     ):
 
         with st.spinner(
-            "Model Stance · Recent Signal · Final Stance를 "
-            "재계산하고 있습니다..."
+            "Official → Infomax → Model/Recent/Final "
+            "순서로 데이터를 업데이트하고 있습니다..."
         ):
 
             result = (
@@ -1695,10 +1836,18 @@ with st.sidebar:
                 "업데이트 실패"
             )
 
-            st.code(
+            # stderr가 있으면 먼저 보여주고,
+            # 없으면 stdout 전체 로그 표시
+            error_output = (
                 result.stderr
                 or
                 result.stdout
+                or
+                "알 수 없는 오류"
+            )
+
+            st.code(
+                error_output
             )
 
     st.divider()
@@ -1877,7 +2026,7 @@ with tab1:
 
         st.warning(
             "final_events.json이 없습니다. "
-            "merge_pipeline.py를 먼저 실행해주세요."
+            "데이터 업데이트를 실행해주세요."
         )
 
     else:
@@ -1889,7 +2038,6 @@ with tab1:
             )
         )
 
-        # Sidebar Speaker 선택은 Speaker table에도 반영
         if selected_speakers:
 
             speaker_df = (
@@ -1910,10 +2058,6 @@ with tab1:
             )
 
         else:
-
-            # =================================================
-            # MAIN TABLE
-            # =================================================
 
             display_df = (
                 speaker_df[
@@ -2088,10 +2232,6 @@ with tab1:
                 },
             )
 
-            # =================================================
-            # MEMBER DETAIL
-            # =================================================
-
             st.divider()
 
             st.subheader(
@@ -2170,10 +2310,6 @@ with tab1:
                     ]
                 ),
             )
-
-            # =================================================
-            # MODEL / RECENT / FINAL DETAILS
-            # =================================================
 
             with st.expander(
                 "성향 계산 상세"
@@ -2301,10 +2437,6 @@ with tab1:
                         f"판단 근거: {final_reason}"
                     )
 
-            # =================================================
-            # MOMENTUM DETAIL
-            # =================================================
-
             with st.expander(
                 "Momentum 계산 상세"
             ):
@@ -2374,10 +2506,6 @@ with tab1:
                     "비교해 방향 변화를 측정하는 독립 지표이며 "
                     "Final Stance 계산에는 직접 사용하지 않습니다."
                 )
-
-            # =================================================
-            # ARTICLE DETAIL
-            # =================================================
 
             member_articles = (
                 fomc_df[
@@ -2492,6 +2620,7 @@ with tab1:
                         url,
                     )
 
+
 st.markdown(
     """
     <div class="model-box">
@@ -2524,6 +2653,8 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+
 # ============================================================
 # TAB 2 - SNS
 # ============================================================
@@ -2707,6 +2838,12 @@ with tab2:
                     )
                 )
 
+                x_error = safe_text(
+                    row.get(
+                        "x_error"
+                    )
+                )
+
                 published_at = (
                     row.get(
                         "x_published_at"
@@ -2769,6 +2906,18 @@ with tab2:
                         post_text
                     )
 
+                elif (
+                    x_error
+                    and
+                    x_error
+                    != "NO_POST"
+                ):
+
+                    st.error(
+                        f"X API 오류: "
+                        f"{x_error}"
+                    )
+
                 else:
 
                     st.caption(
@@ -2817,7 +2966,7 @@ with tab3:
 
         st.info(
             "final_events.json이 없습니다. "
-            "merge_pipeline.py를 먼저 실행해주세요."
+            "데이터 업데이트를 실행해주세요."
         )
 
     else:
