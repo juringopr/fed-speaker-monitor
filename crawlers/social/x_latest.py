@@ -71,14 +71,18 @@ def _clean_value(
 
     try:
 
-        if pd.isna(value):
+        if pd.isna(
+            value
+        ):
             return None
 
     except Exception:
         pass
 
     value = (
-        str(value)
+        str(
+            value
+        )
         .strip()
     )
 
@@ -101,10 +105,14 @@ def clean_x_handle(
     if not handle:
         return None
 
-    if handle.startswith("@"):
+    if handle.startswith(
+        "@"
+    ):
 
         handle = (
-            handle[1:]
+            handle[
+                1:
+            ]
         )
 
     return (
@@ -153,49 +161,162 @@ def _x_get(
         f"{endpoint}"
     )
 
-    response = (
-        SESSION.get(
-            url,
-            headers={
-                "Authorization":
-                    f"Bearer {token}"
-            },
-            params=params,
-            timeout=REQUEST_TIMEOUT,
+    # ========================================================
+    # REQUEST
+    # ========================================================
+
+    try:
+
+        response = (
+            SESSION.get(
+                url,
+                headers={
+                    "Authorization":
+                        f"Bearer {token}"
+                },
+                params=params,
+                timeout=REQUEST_TIMEOUT,
+            )
         )
+
+    except requests.RequestException as exc:
+
+        print(
+            "[X NETWORK ERROR]",
+            "endpoint=",
+            endpoint,
+            "|",
+            repr(
+                exc
+            ),
+        )
+
+        raise RuntimeError(
+            f"X API 네트워크 오류: {exc}"
+        ) from exc
+
+    # ========================================================
+    # DEBUG
+    # ========================================================
+
+    print(
+        "[X DEBUG]",
+        "endpoint=",
+        endpoint,
+        "| status=",
+        response.status_code,
     )
 
-    if response.status_code == 401:
+    try:
+
+        print(
+            "[X DEBUG BODY]",
+            response.text[
+                :1500
+            ],
+        )
+
+    except Exception:
+        pass
+
+    # ========================================================
+    # STATUS HANDLING
+    # ========================================================
+
+    if (
+        response.status_code
+        == 401
+    ):
 
         raise RuntimeError(
             "X API 인증 실패(401). "
             "Bearer Token을 확인해주세요."
         )
 
-    if response.status_code == 402:
+    if (
+        response.status_code
+        == 402
+    ):
 
         raise RuntimeError(
-            "X API 크레딧/결제 오류(402)."
+            "X API 크레딧/결제 오류(402). "
+            "X Developer Portal의 크레딧 상태를 확인해주세요."
         )
 
-    if response.status_code == 403:
+    if (
+        response.status_code
+        == 403
+    ):
 
         raise RuntimeError(
             "X API 접근 거부(403). "
-            "현재 API 권한을 확인해주세요."
+            "현재 API 플랜 또는 endpoint 권한을 확인해주세요."
         )
 
-    if response.status_code == 429:
+    if (
+        response.status_code
+        == 404
+    ):
+
+        raise RuntimeError(
+            "X API 리소스를 찾을 수 없습니다(404). "
+            f"endpoint={endpoint}"
+        )
+
+    if (
+        response.status_code
+        == 429
+    ):
 
         raise RuntimeError(
             "X API Rate Limit(429)에 도달했습니다."
         )
 
-    response.raise_for_status()
+    if not response.ok:
 
-    return (
-        response.json()
-    )
+        raise RuntimeError(
+            f"X API 오류 "
+            f"HTTP {response.status_code}: "
+            f"{response.text[:500]}"
+        )
+
+    # ========================================================
+    # JSON
+    # ========================================================
+
+    try:
+
+        payload = (
+            response.json()
+        )
+
+    except ValueError as exc:
+
+        raise RuntimeError(
+            "X API 응답이 JSON 형식이 아닙니다. "
+            f"응답: {response.text[:500]}"
+        ) from exc
+
+    # HTTP 200인데 payload 안에 errors가 있는 경우
+    if (
+        isinstance(
+            payload,
+            dict,
+        )
+        and
+        payload.get(
+            "errors"
+        )
+    ):
+
+        print(
+            "[X API PAYLOAD ERRORS]",
+            payload.get(
+                "errors"
+            ),
+        )
+
+    return payload
 
 
 # ============================================================
@@ -228,11 +349,22 @@ def get_x_user(
         )
     )
 
-    return (
+    user = (
         payload.get(
             "data"
         )
     )
+
+    if not user:
+
+        print(
+            "[X USER EMPTY]",
+            handle,
+            "| payload=",
+            payload,
+        )
+
+    return user
 
 
 # ============================================================
@@ -251,7 +383,9 @@ def get_user_posts(
                 "max_results":
                     max(
                         5,
-                        int(max_results),
+                        int(
+                            max_results
+                        ),
                     ),
 
                 "tweet.fields":
@@ -268,12 +402,24 @@ def get_user_posts(
         )
     )
 
-    return (
+    posts = (
         payload.get(
             "data"
         )
         or []
     )
+
+    if not posts:
+
+        print(
+            "[X POSTS EMPTY]",
+            "user_id=",
+            user_id,
+            "| payload=",
+            payload,
+        )
+
+    return posts
 
 
 # ============================================================
@@ -299,6 +445,10 @@ def get_latest_x_post(
     if not handle:
         return None
 
+    # ========================================================
+    # USER
+    # ========================================================
+
     user = (
         get_x_user(
             handle
@@ -306,6 +456,13 @@ def get_latest_x_post(
     )
 
     if not user:
+
+        print(
+            "[X LATEST]",
+            f"@{handle}",
+            "| user 없음",
+        )
+
         return None
 
     user_id = (
@@ -315,7 +472,18 @@ def get_latest_x_post(
     )
 
     if not user_id:
+
+        print(
+            "[X LATEST]",
+            f"@{handle}",
+            "| user_id 없음",
+        )
+
         return None
+
+    # ========================================================
+    # POSTS
+    # ========================================================
 
     posts = (
         get_user_posts(
@@ -325,12 +493,23 @@ def get_latest_x_post(
     )
 
     if not posts:
+
+        print(
+            "[X LATEST]",
+            f"@{handle}",
+            "| original post 없음",
+        )
+
         return None
+
+    # ========================================================
+    # SORT
+    # ========================================================
 
     posts = sorted(
         posts,
-        key=lambda x: (
-            x.get(
+        key=lambda item: (
+            item.get(
                 "created_at"
             )
             or
@@ -340,7 +519,9 @@ def get_latest_x_post(
     )
 
     latest = (
-        posts[0]
+        posts[
+            0
+        ]
     )
 
     post_id = (
@@ -348,6 +529,10 @@ def get_latest_x_post(
             "id"
         )
     )
+
+    # ========================================================
+    # URL
+    # ========================================================
 
     post_url = None
 
@@ -480,6 +665,67 @@ def load_members_with_x():
 
 
 # ============================================================
+# EMPTY RESULT
+# ============================================================
+
+def _empty_result(
+    name_en,
+    name_ko,
+    fed,
+    handle,
+    error,
+):
+
+    return {
+
+        "member_name_en":
+            name_en,
+
+        "member_name_ko":
+            name_ko,
+
+        "fed":
+            fed,
+
+        "platform":
+            "X",
+
+        "x_handle":
+            handle,
+
+        "x_name":
+            None,
+
+        "x_username":
+            handle,
+
+        "x_verified":
+            None,
+
+        "x_description":
+            None,
+
+        "x_user_id":
+            None,
+
+        "x_post_id":
+            None,
+
+        "x_published_at":
+            None,
+
+        "x_text":
+            None,
+
+        "x_url":
+            None,
+
+        "x_error":
+            error,
+    }
+
+
+# ============================================================
 # CRAWL ALL
 # ============================================================
 
@@ -537,6 +783,7 @@ def crawl_latest_x_posts(
             )
         )
 
+        print()
         print(
             f"[X {position}/{total}] "
             f"{name_en} "
@@ -579,111 +826,45 @@ def crawl_latest_x_posts(
 
             else:
 
-                result = {
-
-                    "member_name_en":
-                        name_en,
-
-                    "member_name_ko":
-                        name_ko,
-
-                    "fed":
-                        fed,
-
-                    "platform":
-                        "X",
-
-                    "x_handle":
-                        handle,
-
-                    "x_name":
-                        None,
-
-                    "x_username":
-                        handle,
-
-                    "x_verified":
-                        None,
-
-                    "x_description":
-                        None,
-
-                    "x_user_id":
-                        None,
-
-                    "x_post_id":
-                        None,
-
-                    "x_published_at":
-                        None,
-
-                    "x_text":
-                        None,
-
-                    "x_url":
-                        None,
-
-                    "x_error":
-                        "NO_POST",
-                }
+                result = (
+                    _empty_result(
+                        name_en=name_en,
+                        name_ko=name_ko,
+                        fed=fed,
+                        handle=handle,
+                        error="NO_POST",
+                    )
+                )
 
                 print(
-                    "    NO POST"
+                    f"    NO POST @{handle}"
                 )
 
         except Exception as exc:
 
-            result = {
+            error_text = (
+                str(
+                    exc
+                )
+            )
 
-                "member_name_en":
-                    name_en,
-
-                "member_name_ko":
-                    name_ko,
-
-                "fed":
-                    fed,
-
-                "platform":
-                    "X",
-
-                "x_handle":
-                    handle,
-
-                "x_name":
-                    None,
-
-                "x_username":
-                    handle,
-
-                "x_verified":
-                    None,
-
-                "x_description":
-                    None,
-
-                "x_user_id":
-                    None,
-
-                "x_post_id":
-                    None,
-
-                "x_published_at":
-                    None,
-
-                "x_text":
-                    None,
-
-                "x_url":
-                    None,
-
-                "x_error":
-                    str(exc),
-            }
+            result = (
+                _empty_result(
+                    name_en=name_en,
+                    name_ko=name_ko,
+                    fed=fed,
+                    handle=handle,
+                    error=error_text,
+                )
+            )
 
             print(
-                "    FAIL:",
-                exc
+                f"    FAIL @{handle}:",
+                type(
+                    exc
+                ).__name__,
+                "|",
+                error_text,
             )
 
         results.append(
@@ -738,7 +919,10 @@ def latest_x_posts_to_dataframe(
 
     for column in columns:
 
-        if column not in df.columns:
+        if (
+            column
+            not in df.columns
+        ):
 
             df[
                 column
@@ -832,10 +1016,64 @@ def save_x_cache(
         encoding="utf-8-sig",
     )
 
+    print()
     print(
         f"[X CACHE SAVED] "
         f"{CACHE_PATH}"
     )
+
+    # ========================================================
+    # ERROR SUMMARY
+    # ========================================================
+
+    if (
+        "x_error"
+        in df.columns
+    ):
+
+        error_df = (
+            df[
+                df[
+                    "x_error"
+                ]
+                .notna()
+            ]
+        )
+
+        if not error_df.empty:
+
+            print()
+            print(
+                "=" * 80
+            )
+            print(
+                "X ERROR SUMMARY"
+            )
+            print(
+                "=" * 80
+            )
+
+            for _, row in (
+                error_df.iterrows()
+            ):
+
+                print(
+                    row.get(
+                        "member_name_en"
+                    ),
+                    "|",
+                    "@"
+                    +
+                    str(
+                        row.get(
+                            "x_handle"
+                        )
+                    ),
+                    "|",
+                    row.get(
+                        "x_error"
+                    ),
+                )
 
     return (
         CACHE_PATH
@@ -863,7 +1101,12 @@ def load_x_cache():
             )
         )
 
-    except Exception:
+    except Exception as exc:
+
+        print(
+            "[X CACHE LOAD ERROR]",
+            exc,
+        )
 
         return (
             pd.DataFrame()
@@ -895,8 +1138,8 @@ def update_x_cache():
     """
     실제 X API 호출.
 
-    이 함수는 앱 새로고침 때 자동 호출하지 않고
-    사용자가 업데이트 버튼을 눌렀을 때만 호출한다.
+    앱 새로고침 때 자동 호출하지 않고
+    사용자가 업데이트 버튼을 눌렀을 때만 호출.
     """
 
     print()
@@ -956,7 +1199,9 @@ def get_x_cache_updated_at():
         return None
 
     return (
-        values.iloc[0]
+        values.iloc[
+            0
+        ]
     )
 
 
@@ -994,13 +1239,17 @@ if __name__ == "__main__":
     )
 
     print()
+
+    columns = [
+        "member_name_en",
+        "x_handle",
+        "x_published_at",
+        "x_text",
+        "x_error",
+    ]
+
     print(
         df[
-            [
-                "member_name_en",
-                "x_handle",
-                "x_published_at",
-                "x_text",
-            ]
+            columns
         ]
     )
