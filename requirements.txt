@@ -4,5 +4,5 @@ openpyxl
 requests
 beautifulsoup4
 lxml
-python-dateutilpypdf
+python-dateutil
 pypdf
