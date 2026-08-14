@@ -161,10 +161,6 @@ def _x_get(
         f"{endpoint}"
     )
 
-    # ========================================================
-    # REQUEST
-    # ========================================================
-
     try:
 
         response = (
@@ -181,47 +177,9 @@ def _x_get(
 
     except requests.RequestException as exc:
 
-        print(
-            "[X NETWORK ERROR]",
-            "endpoint=",
-            endpoint,
-            "|",
-            repr(
-                exc
-            ),
-        )
-
         raise RuntimeError(
             f"X API 네트워크 오류: {exc}"
         ) from exc
-
-    # ========================================================
-    # DEBUG
-    # ========================================================
-
-    print(
-        "[X DEBUG]",
-        "endpoint=",
-        endpoint,
-        "| status=",
-        response.status_code,
-    )
-
-    try:
-
-        print(
-            "[X DEBUG BODY]",
-            response.text[
-                :1500
-            ],
-        )
-
-    except Exception:
-        pass
-
-    # ========================================================
-    # STATUS HANDLING
-    # ========================================================
 
     if (
         response.status_code
@@ -280,10 +238,6 @@ def _x_get(
             f"{response.text[:500]}"
         )
 
-    # ========================================================
-    # JSON
-    # ========================================================
-
     try:
 
         payload = (
@@ -296,25 +250,6 @@ def _x_get(
             "X API 응답이 JSON 형식이 아닙니다. "
             f"응답: {response.text[:500]}"
         ) from exc
-
-    # HTTP 200인데 payload 안에 errors가 있는 경우
-    if (
-        isinstance(
-            payload,
-            dict,
-        )
-        and
-        payload.get(
-            "errors"
-        )
-    ):
-
-        print(
-            "[X API PAYLOAD ERRORS]",
-            payload.get(
-                "errors"
-            ),
-        )
 
     return payload
 
@@ -349,22 +284,11 @@ def get_x_user(
         )
     )
 
-    user = (
+    return (
         payload.get(
             "data"
         )
     )
-
-    if not user:
-
-        print(
-            "[X USER EMPTY]",
-            handle,
-            "| payload=",
-            payload,
-        )
-
-    return user
 
 
 # ============================================================
@@ -402,24 +326,12 @@ def get_user_posts(
         )
     )
 
-    posts = (
+    return (
         payload.get(
             "data"
         )
         or []
     )
-
-    if not posts:
-
-        print(
-            "[X POSTS EMPTY]",
-            "user_id=",
-            user_id,
-            "| payload=",
-            payload,
-        )
-
-    return posts
 
 
 # ============================================================
@@ -445,10 +357,6 @@ def get_latest_x_post(
     if not handle:
         return None
 
-    # ========================================================
-    # USER
-    # ========================================================
-
     user = (
         get_x_user(
             handle
@@ -456,13 +364,6 @@ def get_latest_x_post(
     )
 
     if not user:
-
-        print(
-            "[X LATEST]",
-            f"@{handle}",
-            "| user 없음",
-        )
-
         return None
 
     user_id = (
@@ -472,18 +373,7 @@ def get_latest_x_post(
     )
 
     if not user_id:
-
-        print(
-            "[X LATEST]",
-            f"@{handle}",
-            "| user_id 없음",
-        )
-
         return None
-
-    # ========================================================
-    # POSTS
-    # ========================================================
 
     posts = (
         get_user_posts(
@@ -493,18 +383,7 @@ def get_latest_x_post(
     )
 
     if not posts:
-
-        print(
-            "[X LATEST]",
-            f"@{handle}",
-            "| original post 없음",
-        )
-
         return None
-
-    # ========================================================
-    # SORT
-    # ========================================================
 
     posts = sorted(
         posts,
@@ -529,10 +408,6 @@ def get_latest_x_post(
             "id"
         )
     )
-
-    # ========================================================
-    # URL
-    # ========================================================
 
     post_url = None
 
@@ -783,7 +658,6 @@ def crawl_latest_x_posts(
             )
         )
 
-        print()
         print(
             f"[X {position}/{total}] "
             f"{name_en} "
@@ -860,10 +734,6 @@ def crawl_latest_x_posts(
 
             print(
                 f"    FAIL @{handle}:",
-                type(
-                    exc
-                ).__name__,
-                "|",
                 error_text,
             )
 
@@ -997,8 +867,6 @@ def save_x_cache(
         updated_at
     )
 
-    # pandas timezone 포함 timestamp를
-    # csv 문자열로 저장
     df[
         "x_published_at"
     ] = (
@@ -1016,64 +884,10 @@ def save_x_cache(
         encoding="utf-8-sig",
     )
 
-    print()
     print(
         f"[X CACHE SAVED] "
         f"{CACHE_PATH}"
     )
-
-    # ========================================================
-    # ERROR SUMMARY
-    # ========================================================
-
-    if (
-        "x_error"
-        in df.columns
-    ):
-
-        error_df = (
-            df[
-                df[
-                    "x_error"
-                ]
-                .notna()
-            ]
-        )
-
-        if not error_df.empty:
-
-            print()
-            print(
-                "=" * 80
-            )
-            print(
-                "X ERROR SUMMARY"
-            )
-            print(
-                "=" * 80
-            )
-
-            for _, row in (
-                error_df.iterrows()
-            ):
-
-                print(
-                    row.get(
-                        "member_name_en"
-                    ),
-                    "|",
-                    "@"
-                    +
-                    str(
-                        row.get(
-                            "x_handle"
-                        )
-                    ),
-                    "|",
-                    row.get(
-                        "x_error"
-                    ),
-                )
 
     return (
         CACHE_PATH
