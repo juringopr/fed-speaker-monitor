@@ -1850,6 +1850,12 @@ with st.sidebar:
                 error_output
             )
 
+
+st.caption(
+    "※ 최근 공식 발언·연합인포맥스·뉴스를 다시 수집하고 "
+    "성향을 재계산하므로 업데이트에 시간이 소요될 수 있습니다. "
+    "예상 소요시간: 약 5~10분."
+)
     st.divider()
 
     selected_relevance = (
