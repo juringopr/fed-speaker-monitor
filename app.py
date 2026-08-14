@@ -102,13 +102,19 @@ try:
             ]
         )
 
-        # 임시 X Token 연결 확인
-st.write("secret exists:", "X_BEARER_TOKEN" in st.secrets)
-st.write("env exists:", bool(os.getenv("X_BEARER_TOKEN")))
-
 except Exception:
     pass
 
+# 임시 X Token 확인
+st.write(
+    "secret exists:",
+    "X_BEARER_TOKEN" in st.secrets
+)
+
+st.write(
+    "env exists:",
+    bool(os.getenv("X_BEARER_TOKEN"))
+)
 
 # ============================================================
 # CSS
