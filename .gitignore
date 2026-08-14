@@ -77,7 +77,7 @@ output/*.xlsx
 # Runtime cache / generated data
 # ============================================================
 
-data/final_events.json
+
 data/infomax_cache.json
 data/official_cache.json
 data/x_latest.csv
