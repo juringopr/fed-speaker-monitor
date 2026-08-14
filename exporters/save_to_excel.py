@@ -23,552 +23,712 @@ OUTPUT_DIR = (
 
 
 # ============================================================
-# LABEL ORDER
+# COLUMN ORDER
 # ============================================================
 
-HAWK_DOVE_ORDER = {
-    "HAWKISH": 5,
-    "NEUTRAL_HAWKISH": 4,
-    "NEUTRAL": 3,
-    "NEUTRAL_DOVISH": 2,
-    "DOVISH": 1,
+COLUMN_ORDER = [
+
+    # --------------------------------------------------------
+    # BASIC
+    # --------------------------------------------------------
+
+    "published_at",
+    "member_name_ko",
+    "member_name_en",
+    "member_role_ko",
+    "member_role_en",
+    "member_fed",
+    "member_voter",
+    "member_vote_year",
+    "member_priority",
+
+    # --------------------------------------------------------
+    # ARTICLE
+    # --------------------------------------------------------
+
+    "title",
+    "url",
+    "source",
+    "speaker_raw",
+
+    # --------------------------------------------------------
+    # FOMC ANALYSIS
+    # --------------------------------------------------------
+
+    "fomc_relevance",
+    "relevance_score",
+    "topics",
+
+    "hawk_dove_label",
+    "hawk_dove_score",
+
+    # --------------------------------------------------------
+    # CURRENT OFFICIAL SPEECH STANCE
+    # --------------------------------------------------------
+
+    "speech_current_label",
+    "speech_current_score",
+    "speech_sample_count",
+
+    # --------------------------------------------------------
+    # MOMENTUM
+    # --------------------------------------------------------
+
+    "momentum_label",
+    "momentum_score",
+    "momentum_confidence",
+
+    "momentum_recent_avg",
+    "momentum_previous_avg",
+
+    "momentum_recent_count",
+    "momentum_previous_count",
+
+    "momentum_total_important_count",
+
+    # --------------------------------------------------------
+    # NEWS CROSS CHECK
+    # --------------------------------------------------------
+
+    "news_label",
+    "news_score",
+    "news_confidence",
+
+    "news_article_count",
+    "news_usable_count",
+    "news_cluster_count",
+
+    # --------------------------------------------------------
+    # FINAL CONSENSUS
+    # --------------------------------------------------------
+
+    "consensus_label",
+    "consensus_score",
+    "cross_check",
+
+    # --------------------------------------------------------
+    # BODY / DEBUG
+    # --------------------------------------------------------
+
+    "body_fetched",
+    "text",
+]
+
+
+# ============================================================
+# DISPLAY NAMES
+# ============================================================
+
+DISPLAY_NAMES = {
+
+    "published_at":
+        "Date",
+
+    "member_name_ko":
+        "Member_KO",
+
+    "member_name_en":
+        "Member_EN",
+
+    "member_role_ko":
+        "Role_KO",
+
+    "member_role_en":
+        "Role_EN",
+
+    "member_fed":
+        "Fed",
+
+    "member_voter":
+        "Voter",
+
+    "member_vote_year":
+        "Term",
+
+    "member_priority":
+        "Priority",
+
+    "title":
+        "Title",
+
+    "url":
+        "URL",
+
+    "source":
+        "Source",
+
+    "speaker_raw":
+        "Speaker_Raw",
+
+    "fomc_relevance":
+        "FOMC_Relevance",
+
+    "relevance_score":
+        "Relevance_Score",
+
+    "topics":
+        "Topics",
+
+    "hawk_dove_label":
+        "Hawk_Dove",
+
+    "hawk_dove_score":
+        "Hawk_Dove_Score",
+
+    # --------------------------------------------------------
+    # CURRENT STANCE
+    # --------------------------------------------------------
+
+    "speech_current_label":
+        "Current_Stance",
+
+    "speech_current_score":
+        "Current_Stance_Score",
+
+    "speech_sample_count":
+        "Current_Stance_Samples",
+
+    # --------------------------------------------------------
+    # MOMENTUM
+    # --------------------------------------------------------
+
+    "momentum_label":
+        "Momentum",
+
+    "momentum_score":
+        "Momentum_Score",
+
+    "momentum_confidence":
+        "Momentum_Confidence",
+
+    "momentum_recent_avg":
+        "Momentum_Recent_Avg",
+
+    "momentum_previous_avg":
+        "Momentum_Previous_Avg",
+
+    "momentum_recent_count":
+        "Momentum_Recent_N",
+
+    "momentum_previous_count":
+        "Momentum_Previous_N",
+
+    "momentum_total_important_count":
+        "Momentum_Important_N",
+
+    # --------------------------------------------------------
+    # NEWS
+    # --------------------------------------------------------
+
+    "news_label":
+        "News_Stance",
+
+    "news_score":
+        "News_Score",
+
+    "news_confidence":
+        "News_Confidence",
+
+    "news_article_count":
+        "News_Articles",
+
+    "news_usable_count":
+        "News_Usable",
+
+    "news_cluster_count":
+        "News_Clusters",
+
+    # --------------------------------------------------------
+    # CONSENSUS
+    # --------------------------------------------------------
+
+    "consensus_label":
+        "Consensus",
+
+    "consensus_score":
+        "Consensus_Score",
+
+    "cross_check":
+        "Cross_Check",
+
+    "body_fetched":
+        "Body_Fetched",
+
+    "text":
+        "Text",
 }
 
-RELEVANCE_ORDER = {
-    "HIGH": 3,
-    "MEDIUM": 2,
-    "LOW": 1,
-}
-
 
 # ============================================================
-# EVIDENCE CLEAN
+# CLEAN VALUE
 # ============================================================
 
-def _evidence_to_text(
-    sentences,
-    max_items=5,
+def _clean_value(
+    value,
 ):
 
-    if not sentences:
-        return ""
+    if value is None:
+        return None
 
-    cleaned = []
-
-    for sentence in sentences[:max_items]:
-
-        sentence = str(
-            sentence
-        ).strip()
-
-        if not sentence:
-            continue
-
-        cleaned.append(
-            sentence
-        )
-
-    return "\n".join(
-        cleaned
-    )
-
-
-# ============================================================
-# TOPIC
-# ============================================================
-
-def _topics_to_text(
-    topics
-):
-
-    if not topics:
-        return ""
-
+    # list -> string
     if isinstance(
-        topics,
-        str
+        value,
+        list,
     ):
-        return topics
 
-    return ", ".join(
-        str(topic)
-        for topic in topics
-    )
+        return " | ".join(
+            str(item)
+            for item in value
+            if item is not None
+        )
+
+    # dict -> string
+    if isinstance(
+        value,
+        dict,
+    ):
+
+        return str(
+            value
+        )
+
+    return value
 
 
 # ============================================================
-# FLATTEN ONE ARTICLE
+# ARTICLES -> DATAFRAME
 # ============================================================
 
-def _flatten_article(
-    item
+def articles_to_dataframe(
+    articles,
 ):
 
-    member_name = (
-        item.get(
-            "member_name_en"
-        )
-    )
+    rows = []
 
-    speaker_raw = (
-        item.get(
-            "speaker_raw"
-        )
-    )
+    for article in (
+        articles
+        or []
+    ):
 
-    speaker = (
-        member_name
-        or speaker_raw
-        or "UNMATCHED"
-    )
+        row = {}
 
-    text = (
-        item.get(
-            "text"
-        )
-        or ""
-    )
+        for column in COLUMN_ORDER:
 
-    return {
-
-        # ----------------------------------------------------
-        # Basic
-        # ----------------------------------------------------
-
-        "Date":
-            item.get(
-                "published_at"
-            ),
-
-        "Speaker":
-            speaker,
-
-        "Speaker_KR":
-            item.get(
-                "member_name_ko"
-            ),
-
-        "Role":
-            item.get(
-                "member_role_en"
-            ),
-
-        "Fed":
-            item.get(
-                "member_fed"
-            ),
-
-        "Voter":
-            item.get(
-                "member_voter"
-            ),
-
-        "Matched":
-            bool(
-                member_name
-            ),
-
-        # ----------------------------------------------------
-        # Article
-        # ----------------------------------------------------
-
-        "Title":
-            item.get(
-                "title"
-            ),
-
-        "Source":
-            item.get(
-                "source"
-            ),
-
-        # ----------------------------------------------------
-        # Relevance
-        # ----------------------------------------------------
-
-        "Relevance":
-            item.get(
-                "fomc_relevance"
-            ),
-
-        "Relevance_Score":
-            item.get(
-                "fomc_relevance_score"
-            ),
-
-        "Policy_Score":
-            item.get(
-                "policy_score"
-            ),
-
-        "Dual_Mandate_Score":
-            item.get(
-                "dual_mandate_score"
-            ),
-
-        "Macro_Score":
-            item.get(
-                "macro_score"
-            ),
-
-        # ----------------------------------------------------
-        # Topic
-        # ----------------------------------------------------
-
-        "Topics":
-            _topics_to_text(
-                item.get(
-                    "topics"
+            row[
+                column
+            ] = (
+                _clean_value(
+                    article.get(
+                        column
+                    )
                 )
-            ),
+            )
 
-        # ----------------------------------------------------
-        # Hawk / Dove
-        # ----------------------------------------------------
-
-        "Hawk_Dove":
-            item.get(
-                "hawk_dove_label"
-            ),
-
-        "Hawk_Dove_Score":
-            item.get(
-                "hawk_dove_score"
-            ),
-
-        "Confidence":
-            item.get(
-                "hawk_dove_confidence"
-            ),
-
-        "Hawkish_Score":
-            item.get(
-                "hawkish_score"
-            ),
-
-        "Dovish_Score":
-            item.get(
-                "dovish_score"
-            ),
-
-        "Hawk_Evidence":
-            _evidence_to_text(
-                item.get(
-                    "hawk_evidence_sentences"
-                )
-            ),
-
-        "Dove_Evidence":
-            _evidence_to_text(
-                item.get(
-                    "dove_evidence_sentences"
-                )
-            ),
-
-        # ----------------------------------------------------
-        # Fetch
-        # ----------------------------------------------------
-
-        "Body_Fetched":
-            item.get(
-                "body_fetched"
-            ),
-
-        "Body_Length":
-            len(
-                text
-            ),
-
-        "Body_Error":
-            item.get(
-                "body_fetch_error"
-            ),
-
-        # ----------------------------------------------------
-        # URL
-        # ----------------------------------------------------
-
-        "URL":
-            item.get(
-                "url"
-            ),
-    }
-
-
-# ============================================================
-# DATAFRAME
-# ============================================================
-
-def _build_dataframe(
-    processed
-):
-
-    rows = [
-        _flatten_article(
-            item
+        rows.append(
+            row
         )
-        for item in processed
-    ]
 
     df = pd.DataFrame(
         rows
     )
 
     if df.empty:
-        return df
 
-    # --------------------------------------------------------
+        df = pd.DataFrame(
+            columns=COLUMN_ORDER
+        )
+
+    # ========================================================
     # DATE
-    # --------------------------------------------------------
+    # ========================================================
 
-    df[
-        "Date"
-    ] = pd.to_datetime(
+    if (
+        "published_at"
+        in df.columns
+    ):
+
         df[
-            "Date"
-        ],
-        errors="coerce",
-    )
-
-    # --------------------------------------------------------
-    # SORT SUPPORT
-    # --------------------------------------------------------
-
-    df[
-        "_relevance_order"
-    ] = (
-        df[
-            "Relevance"
-        ]
-        .map(
-            RELEVANCE_ORDER
+            "published_at"
+        ] = pd.to_datetime(
+            df[
+                "published_at"
+            ],
+            errors="coerce",
         )
-        .fillna(0)
-    )
 
-    df[
-        "_hawk_order"
-    ] = (
         df[
-            "Hawk_Dove"
-        ]
-        .map(
-            HAWK_DOVE_ORDER
+            "published_at"
+        ] = (
+            df[
+                "published_at"
+            ]
+            .dt.strftime(
+                "%Y-%m-%d"
+            )
         )
-        .fillna(0)
-    )
 
-    # 최신순
-    df = df.sort_values(
-        by=[
-            "Date",
-            "_relevance_order",
-        ],
-        ascending=[
-            False,
-            False,
-        ],
-        na_position="last",
-    )
+    # ========================================================
+    # SORT
+    # ========================================================
 
-    df = df.drop(
-        columns=[
-            "_relevance_order",
-            "_hawk_order",
-        ]
+    sort_columns = []
+
+    ascending = []
+
+    if (
+        "published_at"
+        in df.columns
+    ):
+
+        sort_columns.append(
+            "published_at"
+        )
+
+        ascending.append(
+            False
+        )
+
+    if (
+        "member_name_en"
+        in df.columns
+    ):
+
+        sort_columns.append(
+            "member_name_en"
+        )
+
+        ascending.append(
+            True
+        )
+
+    if sort_columns:
+
+        df = df.sort_values(
+            by=sort_columns,
+            ascending=ascending,
+            na_position="last",
+        )
+
+    # ========================================================
+    # DISPLAY COLUMN NAMES
+    # ========================================================
+
+    df = df.rename(
+        columns=DISPLAY_NAMES
     )
 
     return df
 
 
 # ============================================================
-# SUMMARY
+# MEMBER SUMMARY
 # ============================================================
 
-def _build_summary(
-    df
+def build_member_summary(
+    articles,
 ):
+
+    if not articles:
+
+        return pd.DataFrame()
+
+    grouped = {}
+
+    for article in articles:
+
+        member = (
+            article.get(
+                "member_name_en"
+            )
+        )
+
+        if not member:
+            continue
+
+        grouped.setdefault(
+            member,
+            []
+        )
+
+        grouped[
+            member
+        ].append(
+            article
+        )
 
     rows = []
 
-    rows.append({
-        "Category": "TOTAL",
-        "Label": "Articles",
-        "Count": len(df),
-    })
+    for (
+        member,
+        member_articles,
+    ) in grouped.items():
 
-    rows.append({
-        "Category": "MATCH",
-        "Label": "Matched",
-        "Count": int(
-            df[
-                "Matched"
-            ].sum()
-        ),
-    })
+        # 최신순
+        member_articles = sorted(
+            member_articles,
+            key=lambda item: (
+                item.get(
+                    "published_at"
+                )
+                or
+                ""
+            ),
+            reverse=True,
+        )
 
-    rows.append({
-        "Category": "MATCH",
-        "Label": "Unmatched",
-        "Count": int(
-            (
-                ~df[
-                    "Matched"
-                ]
-            ).sum()
-        ),
-    })
+        latest = (
+            member_articles[
+                0
+            ]
+        )
 
-    # --------------------------------------------------------
-    # Relevance
-    # --------------------------------------------------------
+        latest_date = (
+            latest.get(
+                "published_at"
+            )
+        )
 
-    for label in [
-        "HIGH",
-        "MEDIUM",
-        "LOW",
-    ]:
+        # ----------------------------------------------------
+        # IMPORTANT COUNT
+        # ----------------------------------------------------
+
+        important_count = sum(
+
+            1
+
+            for item
+            in member_articles
+
+            if item.get(
+                "fomc_relevance"
+            )
+            in [
+                "HIGH",
+                "MEDIUM",
+            ]
+        )
+
+        # ----------------------------------------------------
+        # SUMMARY
+        # ----------------------------------------------------
 
         rows.append({
-            "Category":
-                "RELEVANCE",
 
-            "Label":
-                label,
-
-            "Count":
-                int(
-                    (
-                        df[
-                            "Relevance"
-                        ]
-                        == label
-                    ).sum()
+            "Member_KO":
+                latest.get(
+                    "member_name_ko"
                 ),
+
+            "Member_EN":
+                member,
+
+            "Role_KO":
+                latest.get(
+                    "member_role_ko"
+                ),
+
+            "Fed":
+                latest.get(
+                    "member_fed"
+                ),
+
+            "Voter":
+                latest.get(
+                    "member_voter"
+                ),
+
+            "Term":
+                latest.get(
+                    "member_vote_year"
+                ),
+
+            # -----------------------------------------------
+            # OFFICIAL CURRENT STANCE
+            # -----------------------------------------------
+
+            "Current_Stance":
+                latest.get(
+                    "speech_current_label"
+                ),
+
+            "Current_Stance_Score":
+                latest.get(
+                    "speech_current_score"
+                ),
+
+            # -----------------------------------------------
+            # MOMENTUM
+            # -----------------------------------------------
+
+            "Momentum":
+                latest.get(
+                    "momentum_label"
+                ),
+
+            "Momentum_Score":
+                latest.get(
+                    "momentum_score"
+                ),
+
+            "Momentum_Confidence":
+                latest.get(
+                    "momentum_confidence"
+                ),
+
+            "Recent_Avg":
+                latest.get(
+                    "momentum_recent_avg"
+                ),
+
+            "Previous_Avg":
+                latest.get(
+                    "momentum_previous_avg"
+                ),
+
+            # -----------------------------------------------
+            # NEWS
+            # -----------------------------------------------
+
+            "News_Stance":
+                latest.get(
+                    "news_label"
+                ),
+
+            "News_Score":
+                latest.get(
+                    "news_score"
+                ),
+
+            "News_Confidence":
+                latest.get(
+                    "news_confidence"
+                ),
+
+            # -----------------------------------------------
+            # CONSENSUS
+            # -----------------------------------------------
+
+            "Consensus":
+                latest.get(
+                    "consensus_label"
+                ),
+
+            "Consensus_Score":
+                latest.get(
+                    "consensus_score"
+                ),
+
+            "Cross_Check":
+                latest.get(
+                    "cross_check"
+                ),
+
+            # -----------------------------------------------
+            # DATE
+            # -----------------------------------------------
+
+            "Latest_Speech":
+                latest_date,
+
+            "Important_Speeches":
+                important_count,
         })
 
-    # --------------------------------------------------------
-    # Hawk / Dove
-    # --------------------------------------------------------
-
-    for label in [
-        "HAWKISH",
-        "NEUTRAL_HAWKISH",
-        "NEUTRAL",
-        "NEUTRAL_DOVISH",
-        "DOVISH",
-    ]:
-
-        rows.append({
-            "Category":
-                "HAWK_DOVE",
-
-            "Label":
-                label,
-
-            "Count":
-                int(
-                    (
-                        df[
-                            "Hawk_Dove"
-                        ]
-                        == label
-                    ).sum()
-                ),
-        })
-
-    # --------------------------------------------------------
-    # Body
-    # --------------------------------------------------------
-
-    rows.append({
-        "Category":
-            "BODY",
-
-        "Label":
-            "Fetched",
-
-        "Count":
-            int(
-                df[
-                    "Body_Fetched"
-                ]
-                .fillna(False)
-                .sum()
-            ),
-    })
-
-    rows.append({
-        "Category":
-            "BODY",
-
-        "Label":
-            "Failed",
-
-        "Count":
-            int(
-                (
-                    ~df[
-                        "Body_Fetched"
-                    ]
-                    .fillna(False)
-                ).sum()
-            ),
-    })
-
-    return pd.DataFrame(
+    summary = pd.DataFrame(
         rows
     )
 
+    if not summary.empty:
+
+        summary = (
+            summary
+            .sort_values(
+                by=[
+                    "Current_Stance_Score",
+                    "Member_EN",
+                ],
+                ascending=[
+                    False,
+                    True,
+                ],
+                na_position="last",
+            )
+            .reset_index(
+                drop=True
+            )
+        )
+
+    return summary
+
 
 # ============================================================
-# COLUMN WIDTH
+# EXCEL WIDTH
 # ============================================================
 
 def _set_column_widths(
-    worksheet
+    worksheet,
 ):
 
     widths = {
 
-        "A": 13,   # Date
-        "B": 24,   # Speaker
-        "C": 18,   # KR
-        "D": 35,   # Role
-        "E": 22,   # Fed
-        "F": 9,    # voter
-        "G": 10,   # matched
+        "A": 13,
+        "B": 18,
+        "C": 24,
+        "D": 24,
+        "E": 28,
+        "F": 16,
+        "G": 10,
+        "H": 12,
+        "I": 12,
 
-        "H": 55,   # title
-        "I": 24,   # source
+        "J": 65,
+        "K": 55,
+        "L": 20,
+        "M": 25,
 
-        "J": 14,   # relevance
-        "K": 16,
-        "L": 14,
-        "M": 18,
-        "N": 14,
+        "N": 18,
+        "O": 16,
+        "P": 35,
 
-        "O": 40,   # topics
+        "Q": 20,
+        "R": 18,
 
-        "P": 22,   # HD
-        "Q": 17,
-        "R": 14,
-        "S": 15,
-        "T": 15,
+        "S": 20,
+        "T": 18,
+        "U": 18,
 
-        "U": 70,   # Hawk evidence
-        "V": 70,   # Dove evidence
+        "V": 28,
+        "W": 18,
+        "X": 18,
 
-        "W": 14,
-        "X": 14,
-        "Y": 35,
+        "Y": 15,
+        "Z": 15,
+        "AA": 15,
 
-        "Z": 70,   # URL
+        "AB": 20,
+        "AC": 18,
+        "AD": 18,
+
+        "AE": 20,
+        "AF": 18,
+        "AG": 20,
+
+        "AH": 18,
+        "AI": 18,
+        "AJ": 18,
+
+        "AK": 20,
+        "AL": 18,
+        "AM": 20,
+
+        "AN": 15,
+        "AO": 100,
     }
 
-    for column, width in (
-        widths.items()
-    ):
+    for (
+        column,
+        width,
+    ) in widths.items():
 
         worksheet.column_dimensions[
             column
@@ -576,51 +736,36 @@ def _set_column_widths(
 
 
 # ============================================================
-# STYLE WORKSHEET
+# STYLE
 # ============================================================
 
-def _style_worksheet(
-    worksheet
+def _style_sheet(
+    worksheet,
 ):
 
     from openpyxl.styles import (
-        Alignment,
         Font,
+        Alignment,
         PatternFill,
     )
 
-    # --------------------------------------------------------
-    # HEADER
-    # --------------------------------------------------------
-
-    header_fill = PatternFill(
-        fill_type="solid",
-        fgColor="1F4E78",
-    )
-
-    header_font = Font(
-        color="FFFFFF",
-        bold=True,
-    )
-
+    # Header
     for cell in worksheet[
         1
     ]:
 
-        cell.fill = (
-            header_fill
+        cell.font = Font(
+            bold=True
         )
 
-        cell.font = (
-            header_font
+        cell.alignment = Alignment(
+            horizontal="center",
+            vertical="center",
         )
 
-        cell.alignment = (
-            Alignment(
-                horizontal="center",
-                vertical="center",
-                wrap_text=True,
-            )
+        cell.fill = PatternFill(
+            fill_type="solid",
+            fgColor="D9EAF7",
         )
 
     worksheet.freeze_panes = (
@@ -631,132 +776,101 @@ def _style_worksheet(
         worksheet.dimensions
     )
 
-    worksheet.row_dimensions[
-        1
-    ].height = 30
-
-    # --------------------------------------------------------
-    # BODY
-    # --------------------------------------------------------
-
+    # body
     for row in worksheet.iter_rows(
         min_row=2
     ):
 
         for cell in row:
 
-            cell.alignment = (
-                Alignment(
-                    vertical="top",
-                    wrap_text=True,
-                )
+            cell.alignment = Alignment(
+                vertical="top",
+                wrap_text=True,
             )
 
-    _set_column_widths(
-        worksheet
-    )
-
 
 # ============================================================
-# CONDITIONAL STYLE
+# SUMMARY WIDTH
 # ============================================================
 
-def _apply_label_colors(
+def _style_summary(
     worksheet,
-    header_map,
 ):
 
     from openpyxl.styles import (
-        PatternFill,
         Font,
+        Alignment,
+        PatternFill,
     )
 
-    relevance_colors = {
-        "HIGH": "FCE4D6",
-        "MEDIUM": "FFF2CC",
-        "LOW": "E2F0D9",
-    }
+    for cell in worksheet[
+        1
+    ]:
 
-    hawk_colors = {
-        "HAWKISH": "F4CCCC",
-        "NEUTRAL_HAWKISH": "FCE5CD",
-        "NEUTRAL": "EEEEEE",
-        "NEUTRAL_DOVISH": "D9EAF7",
-        "DOVISH": "CFE2F3",
-    }
-
-    relevance_col = (
-        header_map.get(
-            "Relevance"
+        cell.font = Font(
+            bold=True
         )
-    )
 
-    hawk_col = (
-        header_map.get(
-            "Hawk_Dove"
+        cell.alignment = Alignment(
+            horizontal="center",
+            vertical="center",
         )
+
+        cell.fill = PatternFill(
+            fill_type="solid",
+            fgColor="D9EAF7",
+        )
+
+    worksheet.freeze_panes = (
+        "A2"
     )
 
-    for row in range(
-        2,
-        worksheet.max_row + 1,
+    worksheet.auto_filter.ref = (
+        worksheet.dimensions
+    )
+
+    for column_cells in (
+        worksheet.columns
     ):
 
-        # ----------------------------------------------------
-        # Relevance
-        # ----------------------------------------------------
+        letter = (
+            column_cells[
+                0
+            ].column_letter
+        )
 
-        if relevance_col:
+        max_length = 0
 
-            cell = worksheet.cell(
-                row=row,
-                column=relevance_col,
-            )
+        for cell in column_cells:
 
-            value = cell.value
+            try:
 
-            if value in relevance_colors:
-
-                cell.fill = PatternFill(
-                    fill_type="solid",
-                    fgColor=(
-                        relevance_colors[
-                            value
-                        ]
-                    ),
+                length = len(
+                    str(
+                        cell.value
+                        or
+                        ""
+                    )
                 )
 
-                cell.font = Font(
-                    bold=True
+                max_length = max(
+                    max_length,
+                    length,
                 )
 
-        # ----------------------------------------------------
-        # Hawk Dove
-        # ----------------------------------------------------
+            except Exception:
 
-        if hawk_col:
+                pass
 
-            cell = worksheet.cell(
-                row=row,
-                column=hawk_col,
-            )
-
-            value = cell.value
-
-            if value in hawk_colors:
-
-                cell.fill = PatternFill(
-                    fill_type="solid",
-                    fgColor=(
-                        hawk_colors[
-                            value
-                        ]
-                    ),
-                )
-
-                cell.font = Font(
-                    bold=True
-                )
+        worksheet.column_dimensions[
+            letter
+        ].width = min(
+            max(
+                max_length + 2,
+                12,
+            ),
+            30,
+        )
 
 
 # ============================================================
@@ -764,29 +878,16 @@ def _apply_label_colors(
 # ============================================================
 
 def save_to_excel(
-    processed,
-    filename=None,
+    articles,
+    output_path=None,
 ):
-    """
-    processed list를 Excel로 저장.
-
-    시트:
-        SUMMARY
-        IMPORTANT
-        ALL
-        UNMATCHED
-    """
 
     OUTPUT_DIR.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    # ========================================================
-    # FILENAME
-    # ========================================================
-
-    if not filename:
+    if output_path is None:
 
         timestamp = (
             datetime.now()
@@ -795,59 +896,36 @@ def save_to_excel(
             )
         )
 
-        filename = (
-            f"fed_speaker_monitor_"
-            f"{timestamp}.xlsx"
+        output_path = (
+            OUTPUT_DIR
+            /
+            (
+                "fed_speaker_monitor_"
+                f"{timestamp}.xlsx"
+            )
         )
 
-    if not filename.lower().endswith(
-        ".xlsx"
-    ):
+    else:
 
-        filename += ".xlsx"
-
-    output_path = (
-        OUTPUT_DIR
-        / filename
-    )
-
-    # ========================================================
-    # DATA
-    # ========================================================
-
-    df = _build_dataframe(
-        processed
-    )
-
-    if df.empty:
-
-        raise ValueError(
-            "저장할 processed 데이터가 없습니다."
+        output_path = Path(
+            output_path
         )
+
+    # ========================================================
+    # DATAFRAMES
+    # ========================================================
+
+    article_df = (
+        articles_to_dataframe(
+            articles
+        )
+    )
 
     summary_df = (
-        _build_summary(
-            df
+        build_member_summary(
+            articles
         )
     )
-
-    important_df = df[
-        df[
-            "Relevance"
-        ].isin(
-            [
-                "HIGH",
-                "MEDIUM",
-            ]
-        )
-    ].copy()
-
-    unmatched_df = df[
-        df[
-            "Matched"
-        ]
-        == False
-    ].copy()
 
     # ========================================================
     # WRITE
@@ -858,154 +936,52 @@ def save_to_excel(
         engine="openpyxl",
     ) as writer:
 
-        # SUMMARY 먼저
+        # ----------------------------------------------------
+        # ARTICLES
+        # ----------------------------------------------------
+
+        article_df.to_excel(
+            writer,
+            sheet_name="Articles",
+            index=False,
+        )
+
+        article_ws = (
+            writer.book[
+                "Articles"
+            ]
+        )
+
+        _style_sheet(
+            article_ws
+        )
+
+        _set_column_widths(
+            article_ws
+        )
+
+        # ----------------------------------------------------
+        # MEMBER SUMMARY
+        # ----------------------------------------------------
+
         summary_df.to_excel(
             writer,
-            sheet_name="SUMMARY",
+            sheet_name="Member Summary",
             index=False,
         )
 
-        important_df.to_excel(
-            writer,
-            sheet_name="IMPORTANT",
-            index=False,
+        summary_ws = (
+            writer.book[
+                "Member Summary"
+            ]
         )
 
-        df.to_excel(
-            writer,
-            sheet_name="ALL",
-            index=False,
-        )
-
-        unmatched_df.to_excel(
-            writer,
-            sheet_name="UNMATCHED",
-            index=False,
-        )
-
-        workbook = (
-            writer.book
-        )
-
-        # ====================================================
-        # SUMMARY STYLE
-        # ====================================================
-
-        summary_ws = workbook[
-            "SUMMARY"
-        ]
-
-        _style_worksheet(
+        _style_summary(
             summary_ws
         )
 
-        summary_ws.column_dimensions[
-            "A"
-        ].width = 20
-
-        summary_ws.column_dimensions[
-            "B"
-        ].width = 25
-
-        summary_ws.column_dimensions[
-            "C"
-        ].width = 12
-
-        # ====================================================
-        # DATA SHEETS
-        # ====================================================
-
-        for sheet_name in [
-            "IMPORTANT",
-            "ALL",
-            "UNMATCHED",
-        ]:
-
-            ws = workbook[
-                sheet_name
-            ]
-
-            _style_worksheet(
-                ws
-            )
-
-            headers = {
-                cell.value:
-                    cell.column
-                for cell
-                in ws[1]
-            }
-
-            _apply_label_colors(
-                ws,
-                headers,
-            )
-
-            # Date format
-            date_col = (
-                headers.get(
-                    "Date"
-                )
-            )
-
-            if date_col:
-
-                for row in range(
-                    2,
-                    ws.max_row + 1,
-                ):
-
-                    ws.cell(
-                        row=row,
-                        column=date_col,
-                    ).number_format = (
-                        "yyyy-mm-dd"
-                    )
-
-            # URL hyperlink
-            url_col = (
-                headers.get(
-                    "URL"
-                )
-            )
-
-            if url_col:
-
-                for row in range(
-                    2,
-                    ws.max_row + 1,
-                ):
-
-                    cell = ws.cell(
-                        row=row,
-                        column=url_col,
-                    )
-
-                    if cell.value:
-
-                        cell.hyperlink = (
-                            cell.value
-                        )
-
-                        cell.style = (
-                            "Hyperlink"
-                        )
-
-    print()
     print(
-        "=" * 90
-    )
-
-    print(
-        "EXCEL SAVED"
-    )
-
-    print(
-        "=" * 90
-    )
-
-    print(
-        output_path
+        f"[EXCEL SAVED] {output_path}"
     )
 
     return str(

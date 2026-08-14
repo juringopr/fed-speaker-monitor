@@ -72,3 +72,12 @@ Desktop.ini
 output/*.xlsx
 
 !output/fed_speaker_monitor_20260813_113859.xlsx
+
+# ============================================================
+# Runtime cache / generated data
+# ============================================================
+
+data/final_events.json
+data/infomax_cache.json
+data/official_cache.json
+data/x_latest.csv

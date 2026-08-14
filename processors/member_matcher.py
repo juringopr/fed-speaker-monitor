@@ -17,11 +17,52 @@ MEMBERS_PATH = (
     / "fed_members.csv"
 )
 
-
 _MEMBER_CACHE = None
 
 
+# ============================================================
+# SPECIAL MEMBERS
+# ============================================================
+
+# Stephen Miran은 현재 일반 FOMC member master와 분리해서 관리.
+# URL이 miranYYYYMMDD 형태이므로 안정적으로 식별 가능.
+MIRAN_MEMBER = {
+    "name_ko":
+        "스티븐 미란",
+
+    "name_en":
+        "Stephen Miran",
+
+    "role_ko":
+        "전 연준 이사",
+
+    "role_en":
+        "Former Federal Reserve Governor",
+
+    "fed":
+        "Federal Reserve Board",
+
+    # 현재 FOMC 집계에서는 별도 탭으로 분리
+    "voter":
+        0,
+
+    "vote_year":
+        None,
+
+    "priority":
+        0,
+
+    "member_group":
+        "MIRAN",
+}
+
+
+# ============================================================
+# LOAD MEMBERS
+# ============================================================
+
 def load_members():
+
     global _MEMBER_CACHE
 
     if _MEMBER_CACHE is not None:
@@ -47,7 +88,7 @@ def load_members():
 
             df = df.where(
                 pd.notnull(df),
-                None
+                None,
             )
 
             _MEMBER_CACHE = (
@@ -59,13 +100,18 @@ def load_members():
             return _MEMBER_CACHE
 
         except UnicodeDecodeError as exc:
+
             last_error = exc
 
     raise last_error
 
 
+# ============================================================
+# MEMBER SEARCH TERMS
+# ============================================================
+
 def _member_search_terms(
-    member
+    member,
 ):
 
     terms = []
@@ -84,7 +130,9 @@ def _member_search_terms(
         if value:
 
             terms.append(
-                str(value).strip()
+                str(
+                    value
+                ).strip()
             )
 
     aliases = member.get(
@@ -95,11 +143,16 @@ def _member_search_terms(
 
         for alias in str(
             aliases
-        ).split("|"):
+        ).split(
+            "|"
+        ):
 
-            alias = alias.strip()
+            alias = (
+                alias.strip()
+            )
 
             if alias:
+
                 terms.append(
                     alias
                 )
@@ -116,9 +169,14 @@ def _member_search_terms(
 
         if parts:
 
-            surname = parts[-1]
+            surname = (
+                parts[-1]
+            )
 
-            if len(surname) >= 4:
+            if len(
+                surname
+            ) >= 4:
+
                 terms.append(
                     surname
                 )
@@ -130,22 +188,166 @@ def _member_search_terms(
     )
 
 
+# ============================================================
+# SPECIAL MATCH - STEPHEN MIRAN
+# ============================================================
+
+def _match_special_member(
+    article,
+):
+
+    url = str(
+        article.get(
+            "url"
+        )
+        or ""
+    ).lower()
+
+    speaker_raw = str(
+        article.get(
+            "speaker_raw"
+        )
+        or ""
+    ).lower()
+
+    title = str(
+        article.get(
+            "title"
+        )
+        or ""
+    ).lower()
+
+    text = str(
+        article.get(
+            "text"
+        )
+        or ""
+    )[:3000].lower()
+
+    # --------------------------------------------------------
+    # URL
+    #
+    # 예:
+    # /speech/miran20260326a.htm
+    # --------------------------------------------------------
+
+    if (
+        "miran20"
+        in url
+    ):
+
+        result = dict(
+            MIRAN_MEMBER
+        )
+
+        result[
+            "match_score"
+        ] = 100
+
+        return result
+
+    # --------------------------------------------------------
+    # SPEAKER NAME
+    # --------------------------------------------------------
+
+    if any(
+        token in speaker_raw
+        for token in [
+            "stephen miran",
+            "stephen i. miran",
+        ]
+    ):
+
+        result = dict(
+            MIRAN_MEMBER
+        )
+
+        result[
+            "match_score"
+        ] = 100
+
+        return result
+
+    # --------------------------------------------------------
+    # TITLE / BODY
+    #
+    # URL이 바뀌더라도 이름이 본문에 있으면 대응.
+    # --------------------------------------------------------
+
+    combined = (
+        title
+        + " "
+        + text
+    )
+
+    if (
+        "stephen miran"
+        in combined
+        or
+        "stephen i. miran"
+        in combined
+    ):
+
+        result = dict(
+            MIRAN_MEMBER
+        )
+
+        result[
+            "match_score"
+        ] = 80
+
+        return result
+
+    return None
+
+
+# ============================================================
+# MATCH MEMBER
+# ============================================================
+
 def match_member(
-    article
+    article,
 ):
     """
     article 예:
+
     {
         speaker_raw: "Lorie Logan",
         title: "...",
         text: "...",
         url: "..."
     }
+
+    우선순위
+    ----------------------------------------------------------
+    1. Stephen Miran 특별 매칭
+    2. fed_members.csv 일반 매칭
     """
 
-    members = load_members()
+    # ========================================================
+    # 1. SPECIAL MEMBER
+    # ========================================================
+
+    special_member = (
+        _match_special_member(
+            article
+        )
+    )
+
+    if special_member:
+
+        return special_member
+
+    # ========================================================
+    # 2. NORMAL MEMBERS
+    # ========================================================
+
+    members = (
+        load_members()
+    )
 
     search_text = " ".join([
+
         str(
             article.get(
                 "speaker_raw"
@@ -173,6 +375,7 @@ def match_member(
             )
             or ""
         ),
+
     ]).lower()
 
     best_member = None
@@ -197,35 +400,57 @@ def match_member(
             if not term_lower:
                 continue
 
-            if term_lower in search_text:
+            if (
+                term_lower
+                in search_text
+            ):
 
-                # full name이면 강한 점수
+                # ------------------------------------------------
+                # full English name
+                # ------------------------------------------------
+
                 if (
                     term_lower
-                    == str(
+                    ==
+                    str(
                         member.get(
                             "name_en"
                         )
                         or ""
                     ).lower()
                 ):
+
                     score += 10
+
+                # ------------------------------------------------
+                # full Korean name
+                # ------------------------------------------------
 
                 elif (
                     term_lower
-                    == str(
+                    ==
+                    str(
                         member.get(
                             "name_ko"
                         )
                         or ""
                     ).lower()
                 ):
+
                     score += 10
 
+                # ------------------------------------------------
+                # alias / surname / role
+                # ------------------------------------------------
+
                 else:
+
                     score += 3
 
-        # speaker_raw 직접 일치
+        # ====================================================
+        # SPEAKER_RAW DIRECT MATCH
+        # ====================================================
+
         speaker_raw = (
             article.get(
                 "speaker_raw"
@@ -244,18 +469,41 @@ def match_member(
                     "name_en"
                 ]
             ).lower()
-            in str(
+            in
+            str(
                 speaker_raw
             ).lower()
         ):
+
             score += 20
 
-        if score > best_score:
+        # ====================================================
+        # BEST MEMBER
+        # ====================================================
 
-            best_score = score
-            best_member = member
+        if (
+            score
+            >
+            best_score
+        ):
 
-    if best_score <= 0:
+            best_score = (
+                score
+            )
+
+            best_member = (
+                member
+            )
+
+    # ========================================================
+    # NO MATCH
+    # ========================================================
+
+    if (
+        best_score
+        <= 0
+    ):
+
         return None
 
     result = dict(
@@ -264,13 +512,26 @@ def match_member(
 
     result[
         "match_score"
-    ] = best_score
+    ] = (
+        best_score
+    )
+
+    # 일반 current FOMC member
+    result[
+        "member_group"
+    ] = (
+        "FOMC"
+    )
 
     return result
 
 
+# ============================================================
+# ENRICH ARTICLE
+# ============================================================
+
 def enrich_with_member(
-    article
+    article,
 ):
 
     result = dict(
@@ -283,23 +544,53 @@ def enrich_with_member(
         )
     )
 
+    # ========================================================
+    # UNMATCHED
+    # ========================================================
+
     if not member:
 
         result.update({
-            "member_name_ko": None,
-            "member_name_en": None,
-            "member_role_ko": None,
-            "member_role_en": None,
-            "member_fed": None,
-            "member_voter": None,
-            "member_vote_year": None,
-            "member_priority": None,
-            "member_match_score": 0,
+
+            "member_name_ko":
+                None,
+
+            "member_name_en":
+                None,
+
+            "member_role_ko":
+                None,
+
+            "member_role_en":
+                None,
+
+            "member_fed":
+                None,
+
+            "member_voter":
+                None,
+
+            "member_vote_year":
+                None,
+
+            "member_priority":
+                None,
+
+            "member_match_score":
+                0,
+
+            "member_group":
+                "UNMATCHED",
         })
 
         return result
 
+    # ========================================================
+    # MATCHED
+    # ========================================================
+
     result.update({
+
         "member_name_ko":
             member.get(
                 "name_ko"
@@ -344,6 +635,13 @@ def enrich_with_member(
             member.get(
                 "match_score"
             ),
+
+        "member_group":
+            member.get(
+                "member_group"
+            )
+            or
+            "FOMC",
     })
 
     return result

@@ -13,12 +13,11 @@ MAX_ARTICLE_SCORE = 20
 
 # ============================================================
 # POLICY CONTEXT
-#
-# rate / rates 같은 단어가 등장해도
-# 통화정책 맥락인지 확인하기 위한 키워드.
 # ============================================================
 
 POLICY_CONTEXT_TERMS = [
+
+    # English
     "federal funds",
     "fed funds",
     "funds rate",
@@ -45,17 +44,40 @@ POLICY_CONTEXT_TERMS = [
     "raise rates",
     "lower rates",
     "higher rates",
+
+    # Korean
+    "연준",
+    "연방준비제도",
+    "연방공개시장위원회",
+    "기준금리",
+    "정책금리",
+    "통화정책",
+    "정책 기조",
+    "정책기조",
+    "금리 인하",
+    "금리인하",
+    "금리 인상",
+    "금리인상",
+    "금리 동결",
+    "금리동결",
+    "금리를 인하",
+    "금리를 인상",
+    "금리를 낮",
+    "금리를 올",
+    "긴축",
+    "완화",
+    "제약적",
+    "중립금리",
 ]
 
 
 # ============================================================
 # NON-POLICY RATE CONTEXT
-#
-# lower rates / higher rates가
-# 정책금리가 아닌 일반적인 비율을 의미하는 경우 제외.
 # ============================================================
 
 NON_POLICY_RATE_TERMS = [
+
+    # English
     "delinquent",
     "delinquency",
     "default rate",
@@ -90,11 +112,24 @@ NON_POLICY_RATE_TERMS = [
     "failure rates",
     "recovery rate",
     "recovery rates",
+
+    # Korean
+    "실업률",
+    "참가율",
+    "경제활동참가율",
+    "성장률",
+    "증가율",
+    "감소율",
+    "모기지 금리",
+    "주택담보대출 금리",
+    "대출금리",
+    "연체율",
+    "부도율",
 ]
 
 
 # ============================================================
-# HAWKISH PHRASES
+# ENGLISH HAWKISH PHRASES
 # ============================================================
 
 HAWKISH_PHRASES = {
@@ -150,7 +185,7 @@ HAWKISH_PHRASES = {
 
 
 # ============================================================
-# DOVISH PHRASES
+# ENGLISH DOVISH PHRASES
 # ============================================================
 
 DOVISH_PHRASES = {
@@ -197,7 +232,258 @@ DOVISH_PHRASES = {
 
 
 # ============================================================
-# REGEX - HAWKISH
+# KOREAN HAWKISH PHRASES
+# ============================================================
+
+KOREAN_HAWKISH_PHRASES = {
+
+    # --------------------------------------------------------
+    # Direct rate hike
+    # --------------------------------------------------------
+
+    "금리 인상이 필요": 5,
+    "금리인상이 필요": 5,
+
+    "금리를 인상해야": 5,
+    "금리를 올려야": 5,
+
+    "기준금리를 인상": 5,
+    "정책금리를 인상": 5,
+
+    "추가 금리 인상": 5,
+    "추가적인 금리 인상": 5,
+    "추가 인상": 4,
+
+    "더 높은 금리": 4,
+    "다소 더 높은 금리": 4,
+
+    # --------------------------------------------------------
+    # Tightening
+    # --------------------------------------------------------
+
+    "더욱 긴축적인 정책": 6,
+    "더 긴축적인 정책": 6,
+
+    "긴축적인 정책이 필요": 6,
+    "긴축적 정책이 필요": 6,
+
+    "긴축적인 통화정책": 5,
+    "긴축적 통화정책": 5,
+
+    "추가 긴축": 5,
+    "추가적인 긴축": 5,
+
+    "제약적이지 않": 4,
+    "충분히 제약적이지 않": 5,
+
+    "더 제약적인": 4,
+    "더욱 제약적인": 4,
+
+    # --------------------------------------------------------
+    # No cut / hold
+    # --------------------------------------------------------
+
+    "금리 인하할 이유가 거의 없어": 5,
+    "금리인하할 이유가 거의 없어": 5,
+
+    "금리 인하할 필요가 없어": 5,
+    "금리인하할 필요가 없어": 5,
+
+    "추가 완화할 이유가 거의 없어": 5,
+
+    "금리 인하 기회 아냐": 5,
+    "금리인하 기회 아냐": 5,
+
+    "금리 인하를 서두를": 3,
+    "금리인하를 서두를": 3,
+
+    "금리 동결을 지지": 2,
+    "금리동결을 지지": 2,
+
+    "동결을 지지": 2,
+
+    "현 정책기조 적절": 2,
+    "현 정책 기조 적절": 2,
+
+    "현 금리 수준 적절": 2,
+
+    # --------------------------------------------------------
+    # Inflation
+    # --------------------------------------------------------
+
+    "인플레이션이 너무 높": 4,
+    "인플레가 너무 높": 4,
+
+    "인플레이션은 너무 높": 4,
+    "인플레는 너무 높": 4,
+
+    "인플레이션이 지나치게 높": 4,
+    "인플레가 지나치게 높": 4,
+
+    "인플레가 너무 뜨겁": 5,
+    "인플레이션이 너무 뜨겁": 5,
+
+    "인플레이션 압력": 3,
+    "인플레 압력": 3,
+
+    "인플레이션 상방 위험": 4,
+    "인플레 상방 위험": 4,
+
+    "인플레이션 위험": 2,
+    "인플레 위험": 2,
+
+    "인플레이션 고착": 5,
+    "인플레 고착": 5,
+
+    "3%에 더 가깝게 고착": 6,
+    "3% 수준에 더 가깝게 고착": 6,
+
+    "인플레이션 기대": 2,
+    "기대 인플레이션": 2,
+
+    "인플레이션 측면에서 할 일이": 4,
+    "인플레 측면에서 할 일이": 4,
+
+    "물가안정을 중시": 3,
+    "물가 안정을 중시": 3,
+
+    "물가 안정 목표": 2,
+
+    "경계를 늦출 때 아냐": 4,
+    "경계를 늦출 때 아니다": 4,
+
+    # --------------------------------------------------------
+    # Strong economy/labor
+    # --------------------------------------------------------
+
+    "경제가 탄탄": 2,
+    "경제는 탄탄": 2,
+
+    "경제가 견조": 2,
+    "경제는 견조": 2,
+
+    "고용 꽤 좋": 2,
+
+    "노동시장이 견조": 2,
+    "노동시장은 견조": 2,
+}
+
+
+# ============================================================
+# KOREAN DOVISH PHRASES
+# ============================================================
+
+KOREAN_DOVISH_PHRASES = {
+
+    # --------------------------------------------------------
+    # Cuts
+    # --------------------------------------------------------
+
+    "금리 인하가 필요": -5,
+    "금리인하가 필요": -5,
+
+    "금리를 인하해야": -5,
+    "금리를 내려야": -5,
+
+    "금리 인하를 지지": -5,
+    "금리인하를 지지": -5,
+
+    "추가 금리 인하": -4,
+    "추가적인 금리 인하": -4,
+
+    "금리 인하 가능": -3,
+    "금리인하 가능": -3,
+
+    "금리 인하 여력": -4,
+    "금리인하 여력": -4,
+
+    "몇 차례 금리 인하": -4,
+    "몇차례 금리 인하": -4,
+
+    # --------------------------------------------------------
+    # Easing
+    # --------------------------------------------------------
+
+    "추가 완화가 필요": -4,
+    "완화가 필요": -4,
+
+    "완화적 정책": -3,
+    "완화적인 정책": -3,
+
+    "제약 수준을 낮": -4,
+    "정책 제약을 줄": -4,
+
+    # --------------------------------------------------------
+    # Inflation improving
+    # --------------------------------------------------------
+
+    "인플레이션이 둔화": -2,
+    "인플레가 둔화": -2,
+
+    "인플레이션 둔화": -2,
+    "인플레 둔화": -2,
+
+    "물가 상승률이 둔화": -2,
+    "물가 상승률 둔화": -2,
+
+    "인플레이션이 하락": -2,
+    "인플레가 하락": -2,
+
+    "인플레이션 정점을 지났": -3,
+    "인플레 정점을 지났": -3,
+
+    "2% 목표로 복귀": -2,
+    "2%로 복귀": -2,
+
+    "디스인플레이션": -1,
+
+    # --------------------------------------------------------
+    # Employment / growth weakness
+    # --------------------------------------------------------
+
+    "노동시장 약화": -3,
+    "노동시장이 약화": -3,
+
+    "고용 하방 위험": -4,
+    "고용의 하방 위험": -4,
+
+    "노동시장 하방 위험": -4,
+
+    "고용 악화": -3,
+
+    "실업률 상승": -2,
+    "실업률이 상승": -2,
+
+    "경기 둔화": -2,
+    "성장 둔화": -2,
+
+    "하방 위험이 커": -3,
+
+    # --------------------------------------------------------
+    # No hike / look-through
+    # --------------------------------------------------------
+
+    "금리 인상에 반대": -5,
+    "금리인상에 반대": -5,
+
+    "금리 인상을 경계": -4,
+    "금리인상을 경계": -4,
+
+    "금리를 인상할 필요 없어": -5,
+    "금리 인상할 필요 없어": -5,
+
+    "일시적인 인플레이션": -2,
+    "일시적 인플레이션": -2,
+
+    "일시적인 물가 상승": -2,
+
+    "일시적 충격으로 간주": -2,
+    "일시적인 충격으로 간주": -2,
+}
+
+
+# ============================================================
+# REGEX - ENGLISH HAWKISH
 # ============================================================
 
 HAWKISH_PATTERNS = [
@@ -267,7 +553,7 @@ HAWKISH_PATTERNS = [
 
 
 # ============================================================
-# REGEX - DOVISH
+# REGEX - ENGLISH DOVISH
 # ============================================================
 
 DOVISH_PATTERNS = [
@@ -317,10 +603,147 @@ DOVISH_PATTERNS = [
 
 
 # ============================================================
-# CONDITIONAL HAWKISH PATTERNS
-#
-# "If disinflation does not continue, I am prepared to act"
-# 같은 문장 처리.
+# REGEX - KOREAN HAWKISH
+# ============================================================
+
+KOREAN_HAWKISH_PATTERNS = [
+
+    # 추가 금리 인하는 물가를 더 오래 높게 유지
+    (
+        r"(추가적인?\s*)?"
+        r"금리\s*인하.{0,80}"
+        r"(인플레|인플레이션|물가).{0,80}"
+        r"(지속|높|위험)",
+        5,
+        "ko_rate_cut_inflation_risk",
+    ),
+
+    # 인플레를 잡기 위해 긴축 필요
+    (
+        r"(인플레|인플레이션|물가).{0,100}"
+        r"(잡|낮추|억제).{0,100}"
+        r"(긴축|제약).{0,50}"
+        r"(필요|요구)",
+        6,
+        "ko_tightening_required",
+    ),
+
+    # 현 정책 충분히 제약적이지 않음
+    (
+        r"(현재|현).{0,80}"
+        r"(정책|통화정책).{0,80}"
+        r"(충분히\s*)?"
+        r"제약적이지\s*않",
+        5,
+        "ko_policy_not_restrictive_enough",
+    ),
+
+    # 인플레 3% 고착
+    (
+        r"(인플레|인플레이션).{0,100}"
+        r"3\s*%.{0,100}"
+        r"(고착|머물|유지)",
+        6,
+        "ko_inflation_three_percent_risk",
+    ),
+
+    # 인플레 목표를 너무 오랫동안 상회
+    (
+        r"(인플레|인플레이션).{0,80}"
+        r"(목표|2\s*%).{0,100}"
+        r"(상회|웃돌).{0,60}"
+        r"(오랫동안|지속)",
+        4,
+        "ko_inflation_above_target_persistent",
+    ),
+
+    # 금리 인상 준비/필요
+    (
+        r"(금리|기준금리).{0,40}"
+        r"(인상|올려).{0,60}"
+        r"(필요|준비|적절|고려)",
+        5,
+        "ko_rate_hike",
+    ),
+
+    # 물가 안정 우선
+    (
+        r"(완전고용|고용).{0,100}"
+        r"(보다|보다는).{0,60}"
+        r"(물가\s*안정|물가안정).{0,60}"
+        r"(중시|우선)",
+        4,
+        "ko_price_stability_priority",
+    ),
+
+    # 금리 동결 지지
+    (
+        r"(금리\s*)?"
+        r"동결.{0,50}"
+        r"(지지|적절)",
+        2,
+        "ko_hold_rates",
+    ),
+]
+
+
+# ============================================================
+# REGEX - KOREAN DOVISH
+# ============================================================
+
+KOREAN_DOVISH_PATTERNS = [
+
+    # 금리 인하 적절
+    (
+        r"(금리|기준금리).{0,40}"
+        r"(인하|내려).{0,60}"
+        r"(필요|적절|지지|고려)",
+        -5,
+        "ko_rate_cut",
+    ),
+
+    # 고용 약화하면 인하
+    (
+        r"(고용|노동시장).{0,100}"
+        r"(약화|둔화|악화|하방).{0,100}"
+        r"(금리\s*)?"
+        r"(인하|완화)",
+        -4,
+        "ko_labor_weakness_easing",
+    ),
+
+    # 물가 둔화 -> 인하
+    (
+        r"(인플레|인플레이션|물가).{0,80}"
+        r"(둔화|하락|개선).{0,100}"
+        r"(금리\s*)?"
+        r"(인하|완화)",
+        -4,
+        "ko_inflation_progress_easing",
+    ),
+
+    # 인상 필요 없음
+    (
+        r"(금리\s*)?"
+        r"인상.{0,50}"
+        r"(필요\s*없|불필요|반대)",
+        -5,
+        "ko_no_hike_needed",
+    ),
+
+    # 일시적 물가 충격 무시
+    (
+        r"(인플레|인플레이션|물가).{0,80}"
+        r"(일시적|단기적).{0,100}"
+        r"(간주|지켜보|넘어가|대응하지)",
+        -3,
+        "ko_look_through_inflation",
+    ),
+]
+
+
+# ============================================================
+# CONDITIONAL HAWKISH - ENGLISH
 # ============================================================
 
 CONDITIONAL_HAWKISH_PATTERNS = [
@@ -364,7 +787,7 @@ CONDITIONAL_HAWKISH_PATTERNS = [
 
 
 # ============================================================
-# CONDITIONAL DOVISH PATTERNS
+# CONDITIONAL DOVISH - ENGLISH
 # ============================================================
 
 CONDITIONAL_DOVISH_PATTERNS = [
@@ -396,6 +819,8 @@ CONDITIONAL_DOVISH_PATTERNS = [
 # ============================================================
 
 DIRECT_STANCE = [
+
+    # English
     "i believe",
     "i think",
     "in my view",
@@ -414,17 +839,46 @@ DIRECT_STANCE = [
     "policy should",
     "it is appropriate",
     "would be appropriate",
+
+    # Korean — Infomax direct quote / attribution
+    "말했다",
+    "밝혔다",
+    "강조했다",
+    "지적했다",
+    "평가했다",
+    "설명했다",
+    "전망했다",
+    "경고했다",
+    "주장했다",
+    "시사했다",
+    "언급했다",
+    "덧붙였다",
+
+    "필요하다고",
+    "적절하다고",
+    "생각한다고",
+    "본다고",
+    "판단한다고",
+    "지지한다고",
+
+    "필요하다는",
+    "적절하다는",
+    "생각한다",
+    "본다",
+    "판단한다",
+
+    "지지했다",
+    "반대했다",
 ]
 
 
 # ============================================================
 # REFERENCE / HISTORICAL CONTEXT
-#
-# 과거 사례, 남의 견해 등을
-# 현재 stance로 과하게 해석하지 않도록 감점.
 # ============================================================
 
 REFERENCE_CONTEXT = [
+
+    # English
     "some have argued",
     "some observers",
     "some view",
@@ -442,6 +896,20 @@ REFERENCE_CONTEXT = [
     "in 2025",
     "last year",
     "previously",
+
+    # Korean
+    "시장에서는",
+    "시장 참가자들은",
+    "전문가들은",
+    "이코노미스트들은",
+    "월가에서는",
+    "투자자들은",
+    "시장은 예상",
+    "시장이 예상",
+    "지난해",
+    "작년",
+    "과거에는",
+    "이전에는",
 ]
 
 
@@ -462,8 +930,11 @@ def _split_sentences(
     if not text:
         return []
 
+    # English punctuation + Korean article/quote context 모두 대응
     parts = re.split(
-        r"(?<=[.!?])\s+(?=[A-Z“\"'])",
+        r"(?<=[.!?。])\s+"
+        r"|(?<=다\.)\s+"
+        r"|(?<=요\.)\s+",
         text
     )
 
@@ -472,7 +943,7 @@ def _split_sentences(
         for sentence in parts
         if len(
             sentence.strip()
-        ) >= 20
+        ) >= 15
     ]
 
 
@@ -486,16 +957,15 @@ def _has_policy_rate_context(
 
     s = sentence.lower()
 
-    # 명백한 비정책 rate 문맥이면 제외
     if any(
         term in s
         for term in NON_POLICY_RATE_TERMS
     ):
 
-        # 단, 동시에 강한 monetary policy 표현이 있으면 인정
         strong_policy = any(
             term in s
             for term in [
+                # English
                 "federal funds",
                 "funds rate",
                 "policy rate",
@@ -505,6 +975,19 @@ def _has_policy_rate_context(
                 "rate cuts",
                 "rate hike",
                 "rate hikes",
+
+                # Korean
+                "기준금리",
+                "정책금리",
+                "통화정책",
+                "연준",
+                "fomc",
+                "금리 인하",
+                "금리인하",
+                "금리 인상",
+                "금리인상",
+                "금리 동결",
+                "금리동결",
             ]
         )
 
@@ -537,6 +1020,10 @@ def _rate_phrase_allowed(
             "rates",
             "interest",
             "policy restraint",
+
+            "금리",
+            "기준금리",
+            "정책금리",
         ]
     )
 
@@ -550,8 +1037,6 @@ def _rate_phrase_allowed(
 
 # ============================================================
 # DISINFLATION CONTEXT
-#
-# disinflation이라는 단어 자체는 dovish로 보지 않는다.
 # ============================================================
 
 def _disinflation_adjustment(
@@ -560,7 +1045,7 @@ def _disinflation_adjustment(
 
     s = sentence.lower()
 
-    # 조건부 긴축
+    # English conditional tightening
     if (
         "disinflation" in s
         and
@@ -596,8 +1081,7 @@ def _disinflation_adjustment(
                 "disinflation_failure_tightening",
         }
 
-    # 명확하게 disinflation 진행 중이라는 표현일 때만
-    # 약한 dovish
+    # English progress
     if (
         "disinflation" in s
         and
@@ -630,6 +1114,61 @@ def _disinflation_adjustment(
             "dove": -1,
             "signal":
                 "disinflation_progress",
+        }
+
+    # Korean stalled disinflation
+    if (
+        "디스인플레이션" in s
+        and
+        any(
+            x in s
+            for x in [
+                "중단",
+                "정체",
+                "멈",
+                "진전이 없",
+                "진전 없",
+            ]
+        )
+    ):
+
+        return {
+            "hawk": 3,
+            "dove": 0,
+            "signal":
+                "ko_disinflation_stalled",
+        }
+
+    # Korean continued disinflation
+    if (
+        "디스인플레이션" in s
+        and
+        any(
+            x in s
+            for x in [
+                "진전",
+                "계속",
+                "지속",
+                "재개",
+            ]
+        )
+        and
+        not any(
+            x in s
+            for x in [
+                "없",
+                "중단",
+                "정체",
+                "멈",
+            ]
+        )
+    ):
+
+        return {
+            "hawk": 0,
+            "dove": -1,
+            "signal":
+                "ko_disinflation_progress",
         }
 
     return {
@@ -680,7 +1219,7 @@ def _score_sentence(
     dove_signals = {}
 
     # ========================================================
-    # Conditional hawkish
+    # CONDITIONAL ENGLISH HAWKISH
     # ========================================================
 
     for (
@@ -700,7 +1239,7 @@ def _score_sentence(
             ] = weight
 
     # ========================================================
-    # Conditional dovish
+    # CONDITIONAL ENGLISH DOVISH
     # ========================================================
 
     for (
@@ -720,7 +1259,7 @@ def _score_sentence(
             ] = weight
 
     # ========================================================
-    # HAWK PHRASES
+    # ENGLISH HAWK PHRASES
     # ========================================================
 
     for (
@@ -742,7 +1281,7 @@ def _score_sentence(
         ] = weight
 
     # ========================================================
-    # DOVE PHRASES
+    # ENGLISH DOVE PHRASES
     # ========================================================
 
     for (
@@ -764,7 +1303,51 @@ def _score_sentence(
         ] = weight
 
     # ========================================================
-    # HAWK REGEX
+    # KOREAN HAWK PHRASES
+    # ========================================================
+
+    for (
+        phrase,
+        weight,
+    ) in KOREAN_HAWKISH_PHRASES.items():
+
+        if phrase not in text:
+            continue
+
+        if not _rate_phrase_allowed(
+            phrase,
+            sentence,
+        ):
+            continue
+
+        hawk_signals[
+            "ko:" + phrase
+        ] = weight
+
+    # ========================================================
+    # KOREAN DOVE PHRASES
+    # ========================================================
+
+    for (
+        phrase,
+        weight,
+    ) in KOREAN_DOVISH_PHRASES.items():
+
+        if phrase not in text:
+            continue
+
+        if not _rate_phrase_allowed(
+            phrase,
+            sentence,
+        ):
+            continue
+
+        dove_signals[
+            "ko:" + phrase
+        ] = weight
+
+    # ========================================================
+    # ENGLISH HAWK REGEX
     # ========================================================
 
     for (
@@ -780,7 +1363,6 @@ def _score_sentence(
         ):
             continue
 
-        # rate 관련 regex면 policy context 필요
         if any(
             token in pattern
             for token in [
@@ -800,7 +1382,7 @@ def _score_sentence(
         )
 
     # ========================================================
-    # DOVE REGEX
+    # ENGLISH DOVE REGEX
     # ========================================================
 
     for (
@@ -835,7 +1417,51 @@ def _score_sentence(
         )
 
     # ========================================================
-    # DISINFLATION SPECIAL CASE
+    # KOREAN HAWK REGEX
+    # ========================================================
+
+    for (
+        pattern,
+        weight,
+        name,
+    ) in KOREAN_HAWKISH_PATTERNS:
+
+        if not re.search(
+            pattern,
+            text,
+            flags=re.I,
+        ):
+            continue
+
+        hawk_signals.setdefault(
+            name,
+            weight,
+        )
+
+    # ========================================================
+    # KOREAN DOVE REGEX
+    # ========================================================
+
+    for (
+        pattern,
+        weight,
+        name,
+    ) in KOREAN_DOVISH_PATTERNS:
+
+        if not re.search(
+            pattern,
+            text,
+            flags=re.I,
+        ):
+            continue
+
+        dove_signals.setdefault(
+            name,
+            weight,
+        )
+
+    # ========================================================
+    # DISINFLATION
     # ========================================================
 
     disinflation = (
@@ -879,14 +1505,7 @@ def _score_sentence(
         )
 
     # ========================================================
-    # NEGATION / "WITHOUT HAVING TO ..."
-    #
-    # 예:
-    # "without having to lower rates"
-    # → dovish가 아님.
-    #
-    # "without having to raise rates"
-    # → hawkish가 아님.
+    # ENGLISH NEGATION
     # ========================================================
 
     if re.search(
@@ -926,6 +1545,85 @@ def _score_sentence(
                 not in key
             )
         }
+
+    # ========================================================
+    # KOREAN NEGATION
+    # ========================================================
+
+    # "금리 인상이 필요하지 않다"
+    if re.search(
+        r"금리\s*인상.{0,30}"
+        r"(필요하지\s*않|필요\s*없|불필요)",
+        text,
+    ):
+
+        hawk_signals = {
+            key: value
+            for key, value
+            in hawk_signals.items()
+            if (
+                "금리 인상"
+                not in key
+                and
+                "rate_hike"
+                not in key
+            )
+        }
+
+        dove_signals[
+            "ko_rate_hike_not_needed"
+        ] = -5
+
+    # "금리 인하가 필요하지 않다"
+    if re.search(
+        r"금리\s*인하.{0,30}"
+        r"(필요하지\s*않|필요\s*없|불필요)",
+        text,
+    ):
+
+        dove_signals = {
+            key: value
+            for key, value
+            in dove_signals.items()
+            if (
+                "금리 인하"
+                not in key
+                and
+                "rate_cut"
+                not in key
+            )
+        }
+
+        hawk_signals[
+            "ko_rate_cut_not_needed"
+        ] = 5
+
+    # "추가 금리 인하는 높은 인플레이션을 더 오래 지속시킬 위험"
+    if re.search(
+        r"금리\s*인하.{0,100}"
+        r"(인플레|인플레이션|물가).{0,100}"
+        r"(더\s*오래|지속).{0,80}"
+        r"(위험|높)",
+        text,
+    ):
+
+        # 단순 '금리 인하' dovish hit 제거
+        dove_signals = {
+            key: value
+            for key, value
+            in dove_signals.items()
+            if (
+                "금리 인하"
+                not in key
+                and
+                "rate_cut"
+                not in key
+            )
+        }
+
+        hawk_signals[
+            "ko_cut_prolongs_inflation"
+        ] = 6
 
     # ========================================================
     # SCORE
@@ -983,7 +1681,8 @@ def _score_sentence(
         "net_score":
             (
                 hawk_score
-                + dove_score
+                +
+                dove_score
             ),
 
         "hawk_signals":
@@ -1002,9 +1701,28 @@ def _score_sentence(
 # LABEL
 # ============================================================
 
-def _label_from_score(
+def score_to_hawk_dove_label(
     score
 ):
+    """
+    외부 processor에서도 사용할 수 있는
+    public label function.
+
+    processors/__init__.py 호환용.
+    """
+
+    try:
+
+        score = float(
+            score
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        return "NEUTRAL"
 
     if score >= 4:
         return "HAWKISH"
@@ -1021,6 +1739,18 @@ def _label_from_score(
     return "NEUTRAL"
 
 
+# 기존 코드 호환
+def _label_from_score(
+    score
+):
+
+    return (
+        score_to_hawk_dove_label(
+            score
+        )
+    )
+
+
 # ============================================================
 # MAIN
 # ============================================================
@@ -1033,24 +1763,41 @@ def score_hawk_dove(
         article.get(
             "title"
         )
-        or ""
+        or
+        article.get(
+            "Title"
+        )
+        or
+        ""
     )
 
     text = str(
         article.get(
             "text"
         )
-        or ""
+        or
+        article.get(
+            "body"
+        )
+        or
+        ""
     )
 
     sentences = []
 
-    # title도 평가
+    # ========================================================
+    # TITLE
+    # ========================================================
+
     if title:
 
         sentences.append(
             title
         )
+
+    # ========================================================
+    # BODY
+    # ========================================================
 
     sentences.extend(
         _split_sentences(
@@ -1111,7 +1858,8 @@ def score_hawk_dove(
 
     raw_score = (
         total_hawk
-        + total_dove
+        +
+        total_dove
     )
 
     score = max(
@@ -1123,7 +1871,7 @@ def score_hawk_dove(
     )
 
     label = (
-        _label_from_score(
+        score_to_hawk_dove_label(
             score
         )
     )

@@ -5,7 +5,10 @@ from concurrent.futures import (
     as_completed,
 )
 
+from datetime import datetime
+
 import io
+import re
 
 import requests
 from pypdf import PdfReader
@@ -157,31 +160,464 @@ DEFAULT_SELECTORS = [
 
 # ============================================================
 # ST. LOUIS OFFICIAL PDF MAP
-#
-# 공식 prepared remarks PDF가 확인된 speech만 등록한다.
-#
-# 인터뷰 / 현장방문 / webcast 등은
-# 전문이 없을 수 있으므로 억지로 mapping하지 않는다.
 # ============================================================
 
 STL_PDF_MAP = {
 
-    "economic-outlook-monetary-policy-aei":
+    "economic-outlook-monetary-policy-aei": {
+
+        "url":
+            (
+                "https://www.stlouisfed.org/"
+                "-/media/project/frbstl/stlouisfed/"
+                "musalem/2026/"
+                "musalem-aei-remarks-01-apr-2026-final.pdf"
+            ),
+
+        "date":
+            "2026-04-01",
+    },
+
+    "productivity-growth-and-monetary-policy-iceland": {
+
+        "url":
+            (
+                "https://www.stlouisfed.org/"
+                "-/media/project/frbstl/stlouisfed/"
+                "musalem/2026/"
+                "musalem-iceland-remarks-28-may-2026_final.pdf"
+            ),
+
+        "date":
+            "2026-05-28",
+    },
+}
+
+
+# ============================================================
+# DATE HELPERS
+# ============================================================
+
+MONTH_MAP = {
+
+    "january": 1,
+    "jan": 1,
+
+    "february": 2,
+    "feb": 2,
+
+    "march": 3,
+    "mar": 3,
+
+    "april": 4,
+    "apr": 4,
+
+    "may": 5,
+
+    "june": 6,
+    "jun": 6,
+
+    "july": 7,
+    "jul": 7,
+
+    "august": 8,
+    "aug": 8,
+
+    "september": 9,
+    "sept": 9,
+    "sep": 9,
+
+    "october": 10,
+    "oct": 10,
+
+    "november": 11,
+    "nov": 11,
+
+    "december": 12,
+    "dec": 12,
+}
+
+
+def _normalize_date(
+    value,
+):
+    """
+    날짜 문자열 -> YYYY-MM-DD
+    """
+
+    if not value:
+        return None
+
+    value = (
+        str(
+            value
+        )
+        .strip()
+    )
+
+    # --------------------------------------------------------
+    # YYYY-MM-DD
+    # --------------------------------------------------------
+
+    iso_match = re.search(
+        r"\b"
+        r"(20\d{2})"
+        r"-"
+        r"(\d{1,2})"
+        r"-"
+        r"(\d{1,2})"
+        r"\b",
+        value,
+    )
+
+    if iso_match:
+
+        try:
+
+            year = int(
+                iso_match.group(1)
+            )
+
+            month = int(
+                iso_match.group(2)
+            )
+
+            day = int(
+                iso_match.group(3)
+            )
+
+            return datetime(
+                year,
+                month,
+                day,
+            ).strftime(
+                "%Y-%m-%d"
+            )
+
+        except ValueError:
+            pass
+
+    # --------------------------------------------------------
+    # May 28, 2026
+    # --------------------------------------------------------
+
+    month_match = re.search(
+        r"\b"
+        r"(January|February|March|April|May|June|July|"
+        r"August|September|October|November|December|"
+        r"Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)"
+        r"\.?"
+        r"\s+"
+        r"(\d{1,2})"
+        r",?"
+        r"\s+"
+        r"(20\d{2})"
+        r"\b",
+        value,
+        flags=re.I,
+    )
+
+    if month_match:
+
+        month_name = (
+            month_match
+            .group(1)
+            .lower()
+        )
+
+        month = (
+            MONTH_MAP.get(
+                month_name
+            )
+        )
+
+        day = int(
+            month_match.group(2)
+        )
+
+        year = int(
+            month_match.group(3)
+        )
+
+        if month:
+
+            try:
+
+                return datetime(
+                    year,
+                    month,
+                    day,
+                ).strftime(
+                    "%Y-%m-%d"
+                )
+
+            except ValueError:
+                pass
+
+    return None
+
+
+# ============================================================
+# APPLY DATE
+# ============================================================
+
+def _apply_article_date(
+    item,
+    value,
+):
+    """
+    article 내부의 date / published_at을 함께 동기화.
+
+    하나라도 기존 날짜가 있으면 이를 기준으로
+    다른 필드도 채운다.
+
+    기존 정상 날짜를 새 값으로 덮어쓰지는 않는다.
+    """
+
+    normalized = (
+        _normalize_date(
+            value
+        )
+    )
+
+    if not normalized:
+        return
+
+    if not item.get(
+        "published_at"
+    ):
+
+        item[
+            "published_at"
+        ] = (
+            normalized
+        )
+
+    if not item.get(
+        "date"
+    ):
+
+        item[
+            "date"
+        ] = (
+            normalized
+        )
+
+
+# ============================================================
+# READER DATE
+# ============================================================
+
+def _extract_reader_date(
+    reader_text,
+):
+    """
+    Jina Reader metadata / 본문 앞부분에서 날짜 탐색.
+    """
+
+    if not reader_text:
+        return None
+
+    raw = str(
+        reader_text
+    )
+
+    # --------------------------------------------------------
+    # Published Time:
+    # --------------------------------------------------------
+
+    match = re.search(
+        r"(?im)^"
+        r"Published\s+Time\s*:"
+        r"\s*(.+?)"
+        r"\s*$",
+        raw,
+    )
+
+    if match:
+
+        normalized = (
+            _normalize_date(
+                match.group(1)
+            )
+        )
+
+        if normalized:
+            return normalized
+
+    # --------------------------------------------------------
+    # Published:
+    # --------------------------------------------------------
+
+    match = re.search(
+        r"(?im)^"
+        r"Published\s*:"
+        r"\s*(.+?)"
+        r"\s*$",
+        raw,
+    )
+
+    if match:
+
+        normalized = (
+            _normalize_date(
+                match.group(1)
+            )
+        )
+
+        if normalized:
+            return normalized
+
+    # --------------------------------------------------------
+    # Date:
+    # --------------------------------------------------------
+
+    match = re.search(
+        r"(?im)^"
+        r"Date\s*:"
+        r"\s*(.+?)"
+        r"\s*$",
+        raw,
+    )
+
+    if match:
+
+        normalized = (
+            _normalize_date(
+                match.group(1)
+            )
+        )
+
+        if normalized:
+            return normalized
+
+    # --------------------------------------------------------
+    # 본문 앞부분
+    # --------------------------------------------------------
+
+    head = (
+        raw[
+            :3000
+        ]
+    )
+
+    return _normalize_date(
+        head
+    )
+
+
+# ============================================================
+# DIRECT HTML DATE
+# ============================================================
+
+def _extract_date_from_soup(
+    soup,
+):
+
+    if soup is None:
+        return None
+
+    meta_candidates = [
+
         (
-            "https://www.stlouisfed.org/"
-            "-/media/project/frbstl/stlouisfed/"
-            "musalem/2026/"
-            "musalem-aei-remarks-01-apr-2026-final.pdf"
+            "meta",
+            {
+                "property":
+                    "article:published_time",
+            },
         ),
 
-    "productivity-growth-and-monetary-policy-iceland":
         (
-            "https://www.stlouisfed.org/"
-            "-/media/project/frbstl/stlouisfed/"
-            "musalem/2026/"
-            "musalem-iceland-remarks-28-may-2026_final.pdf"
+            "meta",
+            {
+                "name":
+                    "date",
+            },
         ),
-}
+
+        (
+            "meta",
+            {
+                "name":
+                    "publishdate",
+            },
+        ),
+
+        (
+            "meta",
+            {
+                "name":
+                    "pubdate",
+            },
+        ),
+
+        (
+            "meta",
+            {
+                "itemprop":
+                    "datePublished",
+            },
+        ),
+    ]
+
+    for (
+        tag_name,
+        attrs,
+    ) in meta_candidates:
+
+        tag = soup.find(
+            tag_name,
+            attrs=attrs,
+        )
+
+        if not tag:
+            continue
+
+        value = (
+            tag.get(
+                "content"
+            )
+            or
+            tag.get_text(
+                " ",
+                strip=True,
+            )
+        )
+
+        normalized = (
+            _normalize_date(
+                value
+            )
+        )
+
+        if normalized:
+            return normalized
+
+    for time_tag in soup.find_all(
+        "time"
+    ):
+
+        value = (
+            time_tag.get(
+                "datetime"
+            )
+            or
+            time_tag.get_text(
+                " ",
+                strip=True,
+            )
+        )
+
+        normalized = (
+            _normalize_date(
+                value
+            )
+        )
+
+        if normalized:
+            return normalized
+
+    return None
 
 
 # ============================================================
@@ -191,9 +627,6 @@ STL_PDF_MAP = {
 def _extract_pdf_text(
     pdf_bytes,
 ):
-    """
-    PDF bytes -> text
-    """
 
     reader = PdfReader(
         io.BytesIO(
@@ -234,40 +667,62 @@ def _fetch_stl_pdf_fallback(
     url,
 ):
     """
-    St. Louis URL slug가 STL_PDF_MAP에 있으면
-    공식 PDF를 다운로드해서 본문 추출.
-
-    PDF가 등록되어 있지 않으면 빈 문자열 반환.
+    return:
+        text, published_at
     """
 
     if not url:
-        return ""
+
+        return (
+            "",
+            None,
+        )
 
     slug = (
-        str(url)
+        str(
+            url
+        )
         .rstrip("/")
         .split("/")[-1]
         .lower()
     )
 
-    pdf_url = (
+    pdf_info = (
         STL_PDF_MAP.get(
             slug
         )
     )
 
-    if not pdf_url:
-        return ""
+    if not pdf_info:
+
+        return (
+            "",
+            None,
+        )
+
+    pdf_url = (
+        pdf_info.get(
+            "url"
+        )
+    )
+
+    pdf_date = (
+        pdf_info.get(
+            "date"
+        )
+    )
 
     response = requests.get(
         pdf_url,
         timeout=PDF_TIMEOUT,
         headers={
+
             "User-Agent":
                 (
                     "Mozilla/5.0 "
                     "(Windows NT 10.0; Win64; x64)"
                 ),
+
             "Accept":
                 (
                     "application/pdf,"
@@ -286,7 +741,6 @@ def _fetch_stl_pdf_fallback(
         .lower()
     )
 
-    # HTML error page를 PDF로 오인하는 것 방지
     if (
         "pdf"
         not in content_type
@@ -301,12 +755,17 @@ def _fetch_stl_pdf_fallback(
             f"{content_type}"
         )
 
-    text = _extract_pdf_text(
-        response.content
+    text = (
+        _extract_pdf_text(
+            response.content
+        )
     )
 
-    return clean_text(
-        text
+    return (
+        clean_text(
+            text
+        ),
+        pdf_date,
     )
 
 
@@ -317,9 +776,6 @@ def _fetch_stl_pdf_fallback(
 def _fetch_with_reader(
     url,
 ):
-    """
-    URL -> Jina Reader
-    """
 
     reader_url = (
         "https://r.jina.ai/"
@@ -330,11 +786,13 @@ def _fetch_with_reader(
         reader_url,
         timeout=READER_TIMEOUT,
         headers={
+
             "User-Agent":
                 (
                     "Mozilla/5.0 "
                     "(Windows NT 10.0; Win64; x64)"
                 ),
+
             "Accept":
                 "text/plain",
         },
@@ -390,6 +848,11 @@ def _clean_reader_text(
             continue
 
         if lower.startswith(
+            "published:"
+        ):
+            continue
+
+        if lower.startswith(
             "markdown content:"
         ):
             continue
@@ -413,28 +876,31 @@ def fetch_article_body(
     article,
     min_text_length=MIN_TEXT_LENGTH,
 ):
-    """
-    본문 수집 순서
-
-    일반:
-        1. DIRECT
-
-    St. Louis:
-        1. DIRECT
-        2. OFFICIAL PDF
-        3. JINA READER
-
-    반환:
-        text
-        body_fetched
-        body_fetch_error
-        body_text_length
-        body_fetch_method
-    """
 
     item = dict(
         article
     )
+
+    # ========================================================
+    # EXISTING DATE SYNC
+    # ========================================================
+
+    existing_date = (
+        item.get(
+            "date"
+        )
+        or
+        item.get(
+            "published_at"
+        )
+    )
+
+    if existing_date:
+
+        _apply_article_date(
+            item,
+            existing_date,
+        )
 
     url = (
         item.get(
@@ -455,6 +921,7 @@ def fetch_article_body(
     if not url:
 
         item.update({
+
             "body_fetched":
                 False,
 
@@ -489,6 +956,7 @@ def fetch_article_body(
     ):
 
         item.update({
+
             "text":
                 existing_text,
 
@@ -529,6 +997,27 @@ def fetch_article_body(
             url
         )
 
+        # ----------------------------------------------------
+        # DATE
+        # ----------------------------------------------------
+
+        direct_date = (
+            _extract_date_from_soup(
+                soup
+            )
+        )
+
+        if direct_date:
+
+            _apply_article_date(
+                item,
+                direct_date,
+            )
+
+        # ----------------------------------------------------
+        # TEXT
+        # ----------------------------------------------------
+
         text = extract_article_text(
             soup,
             selectors=selectors,
@@ -537,10 +1026,6 @@ def fetch_article_body(
         text = clean_text(
             text
         )
-
-        # ----------------------------------------------------
-        # paragraph fallback
-        # ----------------------------------------------------
 
         if (
             len(
@@ -569,10 +1054,6 @@ def fetch_article_body(
                     fallback_text
                 )
 
-        # ----------------------------------------------------
-        # direct success
-        # ----------------------------------------------------
-
         if (
             len(
                 text
@@ -581,6 +1062,7 @@ def fetch_article_body(
         ):
 
             item.update({
+
                 "text":
                     text,
 
@@ -624,6 +1106,7 @@ def fetch_article_body(
     ):
 
         item.update({
+
             "text":
                 existing_text,
 
@@ -645,7 +1128,7 @@ def fetch_article_body(
         return item
 
     # ========================================================
-    # 2. ST. LOUIS OFFICIAL PDF
+    # 2. ST. LOUIS PDF
     # ========================================================
 
     pdf_error = (
@@ -654,11 +1137,21 @@ def fetch_article_body(
 
     try:
 
-        pdf_text = (
+        (
+            pdf_text,
+            pdf_date,
+        ) = (
             _fetch_stl_pdf_fallback(
                 url
             )
         )
+
+        if pdf_date:
+
+            _apply_article_date(
+                item,
+                pdf_date,
+            )
 
         if (
             len(
@@ -668,6 +1161,7 @@ def fetch_article_body(
         ):
 
             item.update({
+
                 "text":
                     pdf_text,
 
@@ -692,6 +1186,10 @@ def fetch_article_body(
                     pdf_text
                 ),
                 "chars",
+                "|",
+                item.get(
+                    "date"
+                ),
                 "|",
                 item.get(
                     "title"
@@ -723,15 +1221,36 @@ def fetch_article_body(
 
     try:
 
-        reader_text = (
+        raw_reader_text = (
             _fetch_with_reader(
                 url
             )
         )
 
+        # ----------------------------------------------------
+        # DATE FIRST
+        # ----------------------------------------------------
+
+        reader_date = (
+            _extract_reader_date(
+                raw_reader_text
+            )
+        )
+
+        if reader_date:
+
+            _apply_article_date(
+                item,
+                reader_date,
+            )
+
+        # ----------------------------------------------------
+        # TEXT
+        # ----------------------------------------------------
+
         reader_text = (
             _clean_reader_text(
-                reader_text
+                raw_reader_text
             )
         )
 
@@ -743,6 +1262,7 @@ def fetch_article_body(
         ):
 
             item.update({
+
                 "text":
                     reader_text,
 
@@ -767,6 +1287,14 @@ def fetch_article_body(
                     reader_text
                 ),
                 "chars",
+                "| date=",
+                item.get(
+                    "date"
+                ),
+                "| published_at=",
+                item.get(
+                    "published_at"
+                ),
                 "|",
                 item.get(
                     "title"
@@ -793,6 +1321,7 @@ def fetch_article_body(
     # ========================================================
 
     item.update({
+
         "text":
             existing_text,
 
@@ -875,10 +1404,6 @@ def fetch_article_bodies(
 
     targets = []
 
-    # ========================================================
-    # TARGETS
-    # ========================================================
-
     for index, article in enumerate(
         results
     ):
@@ -920,6 +1445,7 @@ def fetch_article_bodies(
     )
 
     print()
+
     print(
         "BODY FETCH TARGETS:",
         total_targets
@@ -945,10 +1471,6 @@ def fetch_article_bodies(
     success = 0
     failed = 0
 
-    # ========================================================
-    # THREAD POOL
-    # ========================================================
-
     with ThreadPoolExecutor(
         max_workers=max_workers
     ) as executor:
@@ -972,10 +1494,6 @@ def fetch_article_bodies(
                 article,
             )
 
-        # ====================================================
-        # RESULTS
-        # ====================================================
-
         for future in as_completed(
             future_map
         ):
@@ -992,7 +1510,9 @@ def fetch_article_bodies(
                 (
                     result_index,
                     fetched,
-                ) = future.result()
+                ) = (
+                    future.result()
+                )
 
             except Exception as exc:
 
@@ -1005,6 +1525,7 @@ def fetch_article_bodies(
                 )
 
                 fetched.update({
+
                     "body_fetched":
                         False,
 
@@ -1025,19 +1546,13 @@ def fetch_article_bodies(
                         "FAILED",
                 })
 
-            # ------------------------------------------------
-            # 원래 위치 유지
-            # ------------------------------------------------
-
             results[
                 result_index
-            ] = fetched
+            ] = (
+                fetched
+            )
 
             completed += 1
-
-            # ------------------------------------------------
-            # status
-            # ------------------------------------------------
 
             if (
                 fetched.get(
@@ -1082,19 +1597,29 @@ def fetch_article_bodies(
                 or ""
             )
 
+            article_date = (
+                fetched.get(
+                    "date"
+                )
+                or
+                fetched.get(
+                    "published_at"
+                )
+                or
+                "-"
+            )
+
             print(
                 f"[BODY] "
                 f"{completed}/{total_targets} "
                 f"{speaker} "
+                f"| {article_date} "
                 f"| {status} "
                 f"| {title[:70]}"
             )
 
-    # ========================================================
-    # SUMMARY
-    # ========================================================
-
     print()
+
     print(
         "=" * 70
     )

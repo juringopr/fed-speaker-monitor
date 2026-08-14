@@ -19,9 +19,7 @@ class StLouisFedAdapter(
     GenericRegionalFedAdapter
 ):
 
-    source_name = (
-        "St. Louis Fed"
-    )
+    source_name = "St. Louis Fed"
 
     base_url = (
         "https://www.stlouisfed.org"
@@ -51,7 +49,7 @@ class StLouisFedAdapter(
     def crawl(self):
 
         # ----------------------------------------------------
-        # 1. Main remarks
+        # 1. MAIN REMARKS PAGE
         # ----------------------------------------------------
 
         try:
@@ -61,6 +59,12 @@ class StLouisFedAdapter(
             )
 
             if results:
+
+                print(
+                    "[STL MAIN]",
+                    len(results),
+                    "건"
+                )
 
                 return results
 
@@ -72,7 +76,7 @@ class StLouisFedAdapter(
             )
 
         # ----------------------------------------------------
-        # 2. Sitemap
+        # 2. SITEMAP FALLBACK
         # ----------------------------------------------------
 
         try:
@@ -99,7 +103,7 @@ class StLouisFedAdapter(
             )
 
         # ----------------------------------------------------
-        # 3. RSS hub
+        # 3. RSS FALLBACK
         # ----------------------------------------------------
 
         try:
@@ -131,31 +135,38 @@ class StLouisFedAdapter(
     # MAIN PAGE
     # ========================================================
 
-    def _crawl_main_page(self):
+    def _crawl_main_page(
+        self,
+    ):
 
         soup = get_soup(
             self.list_url,
-            timeout=(4, 8),
+            timeout=(
+                4,
+                8,
+            ),
         )
 
-        return self._extract_remark_links(
-            soup
+        return (
+            self._extract_remark_links(
+                soup
+            )
         )
 
     # ========================================================
     # SITEMAP FALLBACK
     # ========================================================
 
-    def _crawl_sitemap_fallback(self):
+    def _crawl_sitemap_fallback(
+        self,
+    ):
 
         response = requests.get(
             self.sitemap_url,
-
             timeout=(
                 5,
                 12,
             ),
-
             headers={
                 "User-Agent":
                     (
@@ -173,6 +184,10 @@ class StLouisFedAdapter(
         )
 
         candidate_urls = []
+
+        # ====================================================
+        # URL COLLECTION
+        # ====================================================
 
         for loc in soup.find_all(
             "loc"
@@ -202,6 +217,7 @@ class StLouisFedAdapter(
                 url
             )
 
+        # 중복 제거
         candidate_urls = list(
             dict.fromkeys(
                 candidate_urls
@@ -216,6 +232,10 @@ class StLouisFedAdapter(
 
         results = []
 
+        # ====================================================
+        # EACH SPEECH
+        # ====================================================
+
         for url in candidate_urls:
 
             slug = (
@@ -227,6 +247,10 @@ class StLouisFedAdapter(
             if not slug:
                 continue
 
+            # ------------------------------------------------
+            # DEFAULT TITLE
+            # ------------------------------------------------
+
             title = (
                 slug
                 .replace(
@@ -237,17 +261,83 @@ class StLouisFedAdapter(
                 .title()
             )
 
-            # Sitemap 자체에는 보통 날짜가 없으므로
-            # 우선 None.
-            # 이후 article body fetch에서
-            # 상세페이지 날짜 보강 가능.
+            # =================================================
+            # 1. URL에서 날짜 추출
+            #
+            # 예:
+            # bloomberg-tv-interview-may-28-2026
+            # -> 2026-05-28
+            #
+            # URL에서 날짜가 잡히면 St. Louis 상세페이지를
+            # 다시 요청하지 않는다.
+            # =================================================
+
             published_at = (
                 self._date_from_url(
                     url
                 )
             )
 
-            results.append(
+            if published_at:
+
+                print(
+                    "[STL URL DATE]",
+                    published_at,
+                    "|",
+                    title[:80],
+                )
+
+            # =================================================
+            # 2. URL에 날짜가 없을 때만 JINA READER
+            # =================================================
+
+            if not published_at:
+
+                try:
+
+                    (
+                        reader_title,
+                        reader_date,
+                    ) = (
+                        self._fetch_reader_metadata(
+                            url
+                        )
+                    )
+
+                    if reader_title:
+
+                        title = (
+                            reader_title
+                        )
+
+                    if reader_date:
+
+                        published_at = (
+                            reader_date
+                        )
+
+                    print(
+                        "[STL READER META]",
+                        published_at
+                        or "NO DATE",
+                        "|",
+                        title[:80],
+                    )
+
+                except Exception as exc:
+
+                    print(
+                        "[STL READER META FAIL]",
+                        url,
+                        "|",
+                        exc,
+                    )
+
+            # =================================================
+            # RESULT
+            # =================================================
+
+            result = (
                 self.make_result(
                     title=title,
                     url=url,
@@ -256,28 +346,187 @@ class StLouisFedAdapter(
                         self.member.get(
                             "name_en"
                         )
-                        or "Alberto Musalem"
+                        or
+                        "Alberto Musalem"
                     ),
                     text="",
                 )
             )
 
-        return self._deduplicate(
-            results
+            # ------------------------------------------------
+            # 중요
+            #
+            # downstream에서 date를 쓰든 published_at을 쓰든
+            # 날짜가 사라지지 않도록 두 필드를 같이 저장.
+            # ------------------------------------------------
+
+            if published_at:
+
+                result[
+                    "published_at"
+                ] = published_at
+
+                result[
+                    "date"
+                ] = published_at
+
+            results.append(
+                result
+            )
+
+        return (
+            self._deduplicate(
+                results
+            )
+        )
+
+    # ========================================================
+    # JINA READER METADATA
+    # ========================================================
+
+    def _fetch_reader_metadata(
+        self,
+        url,
+    ):
+        """
+        St. Louis 상세 페이지 직접 접근 timeout 회피.
+
+        r.jina.ai를 이용해서
+        title / published date를 확보한다.
+
+        return:
+            title, published_at
+        """
+
+        reader_url = (
+            "https://r.jina.ai/"
+            + url
+        )
+
+        response = requests.get(
+            reader_url,
+            timeout=(
+                5,
+                20,
+            ),
+            headers={
+                "User-Agent":
+                    (
+                        "Mozilla/5.0 "
+                        "(Windows NT 10.0; Win64; x64)"
+                    ),
+                "Accept":
+                    "text/plain",
+            },
+        )
+
+        response.raise_for_status()
+
+        raw = (
+            response.text
+            or ""
+        )
+
+        title = None
+        published_at = None
+
+        # ====================================================
+        # TITLE
+        # ====================================================
+
+        title_match = re.search(
+            r"(?im)^"
+            r"Title\s*:"
+            r"\s*(.+?)"
+            r"\s*$",
+            raw,
+        )
+
+        if title_match:
+
+            title = clean_text(
+                title_match.group(1)
+            )
+
+        # ====================================================
+        # DATE METADATA
+        # ====================================================
+
+        date_patterns = [
+
+            r"(?im)^"
+            r"Published\s+Time\s*:"
+            r"\s*(.+?)"
+            r"\s*$",
+
+            r"(?im)^"
+            r"Published\s*:"
+            r"\s*(.+?)"
+            r"\s*$",
+
+            r"(?im)^"
+            r"Date\s*:"
+            r"\s*(.+?)"
+            r"\s*$",
+        ]
+
+        for pattern in date_patterns:
+
+            match = re.search(
+                pattern,
+                raw,
+            )
+
+            if not match:
+                continue
+
+            published_at = (
+                self._parse_any_date(
+                    match.group(1)
+                )
+            )
+
+            if published_at:
+                break
+
+        # ====================================================
+        # Metadata에 날짜가 없으면 Reader 앞부분 검색
+        # ====================================================
+
+        if not published_at:
+
+            published_at = (
+                self._parse_any_date(
+                    raw[:4000]
+                )
+            )
+
+        return (
+            title,
+            published_at,
         )
 
     # ========================================================
     # RSS FALLBACK
     # ========================================================
 
-    def _crawl_rss_fallback(self):
+    def _crawl_rss_fallback(
+        self,
+    ):
 
         soup = get_soup(
             self.rss_url,
-            timeout=(5, 12),
+            timeout=(
+                5,
+                12,
+            ),
         )
 
         feed_urls = []
+
+        # ====================================================
+        # RSS FEED URL COLLECTION
+        # ====================================================
 
         for link in soup.find_all(
             "a",
@@ -307,7 +556,9 @@ class StLouisFedAdapter(
             )
 
             is_feed = any(
-                token in href_lower
+                token
+                in href_lower
+
                 for token in [
                     "rss",
                     "feed",
@@ -316,11 +567,13 @@ class StLouisFedAdapter(
             )
 
             is_relevant = any(
-                token in (
+                token
+                in (
                     text
                     + " "
                     + href_lower
                 )
+
                 for token in [
                     "president",
                     "remarks",
@@ -339,7 +592,9 @@ class StLouisFedAdapter(
                     "http"
                 ):
 
-                    feed_url = href
+                    feed_url = (
+                        href
+                    )
 
                 else:
 
@@ -366,13 +621,20 @@ class StLouisFedAdapter(
 
         results = []
 
+        # ====================================================
+        # EACH RSS FEED
+        # ====================================================
+
         for feed_url in feed_urls:
 
             try:
 
                 feed_soup = get_soup(
                     feed_url,
-                    timeout=(5, 12),
+                    timeout=(
+                        5,
+                        12,
+                    ),
                 )
 
             except Exception as exc:
@@ -380,7 +642,7 @@ class StLouisFedAdapter(
                 print(
                     "[STL RSS FEED FAIL]",
                     feed_url,
-                    exc
+                    exc,
                 )
 
                 continue
@@ -403,7 +665,6 @@ class StLouisFedAdapter(
                     item_text.lower()
                 )
 
-                # Musalem / President remarks만
                 if (
                     "musalem"
                     not in lower_text
@@ -411,7 +672,12 @@ class StLouisFedAdapter(
                     "president"
                     not in lower_text
                 ):
+
                     continue
+
+                # ------------------------------------------------
+                # TITLE
+                # ------------------------------------------------
 
                 title_tag = (
                     item.find(
@@ -428,6 +694,10 @@ class StLouisFedAdapter(
                         strip=True,
                     )
                 )
+
+                # ------------------------------------------------
+                # URL
+                # ------------------------------------------------
 
                 link_tag = (
                     item.find(
@@ -459,6 +729,10 @@ class StLouisFedAdapter(
                 ):
                     continue
 
+                # ------------------------------------------------
+                # RSS DATE
+                # ------------------------------------------------
+
                 date_tag = (
                     item.find(
                         "pubdate"
@@ -478,7 +752,7 @@ class StLouisFedAdapter(
                 if date_tag:
 
                     published_at = (
-                        self._extract_date_text(
+                        self._parse_any_date(
                             date_tag.get_text(
                                 " ",
                                 strip=True,
@@ -486,7 +760,61 @@ class StLouisFedAdapter(
                         )
                     )
 
-                results.append(
+                # ------------------------------------------------
+                # URL DATE
+                # ------------------------------------------------
+
+                if not published_at:
+
+                    published_at = (
+                        self._date_from_url(
+                            url
+                        )
+                    )
+
+                # ------------------------------------------------
+                # JINA FALLBACK
+                # ------------------------------------------------
+
+                if not published_at:
+
+                    try:
+
+                        (
+                            reader_title,
+                            reader_date,
+                        ) = (
+                            self._fetch_reader_metadata(
+                                url
+                            )
+                        )
+
+                        if reader_title:
+
+                            title = (
+                                reader_title
+                            )
+
+                        if reader_date:
+
+                            published_at = (
+                                reader_date
+                            )
+
+                    except Exception as exc:
+
+                        print(
+                            "[STL RSS READER FAIL]",
+                            url,
+                            "|",
+                            exc,
+                        )
+
+                # ------------------------------------------------
+                # RESULT
+                # ------------------------------------------------
+
+                result = (
                     self.make_result(
                         title=title,
                         url=url,
@@ -495,14 +823,31 @@ class StLouisFedAdapter(
                             self.member.get(
                                 "name_en"
                             )
-                            or "Alberto Musalem"
+                            or
+                            "Alberto Musalem"
                         ),
                         text="",
                     )
                 )
 
-        return self._deduplicate(
-            results
+                if published_at:
+
+                    result[
+                        "published_at"
+                    ] = published_at
+
+                    result[
+                        "date"
+                    ] = published_at
+
+                results.append(
+                    result
+                )
+
+        return (
+            self._deduplicate(
+                results
+            )
         )
 
     # ========================================================
@@ -515,6 +860,7 @@ class StLouisFedAdapter(
     ):
 
         results = []
+
         seen = set()
 
         for link in soup.find_all(
@@ -539,13 +885,20 @@ class StLouisFedAdapter(
                 "remarks/2026/"
                 not in href_lower
             ):
+
                 continue
+
+            # ------------------------------------------------
+            # URL
+            # ------------------------------------------------
 
             if href.startswith(
                 "http"
             ):
 
-                url = href
+                url = (
+                    href
+                )
 
             else:
 
@@ -558,6 +911,10 @@ class StLouisFedAdapter(
             if url in seen:
                 continue
 
+            # ------------------------------------------------
+            # TITLE
+            # ------------------------------------------------
+
             title = clean_text(
                 link.get_text(
                     " ",
@@ -566,11 +923,30 @@ class StLouisFedAdapter(
             )
 
             if not title:
-                continue
+
+                slug = (
+                    url
+                    .rstrip("/")
+                    .split("/")[-1]
+                )
+
+                title = (
+                    slug
+                    .replace(
+                        "-",
+                        " "
+                    )
+                    .strip()
+                    .title()
+                )
 
             seen.add(
                 url
             )
+
+            # ------------------------------------------------
+            # CONTEXT
+            # ------------------------------------------------
 
             context = (
                 self._get_link_context(
@@ -578,21 +954,70 @@ class StLouisFedAdapter(
                 )
             )
 
+            # ------------------------------------------------
+            # DATE
+            #
+            # 우선순위:
+            # context → URL → Jina
+            # ------------------------------------------------
+
             published_at = (
                 self._date_from_context(
                     context
                 )
-                or
-                self._date_from_url(
-                    url
-                )
-                or
-                self._extract_date_text(
-                    context
-                )
             )
 
-            results.append(
+            if not published_at:
+
+                published_at = (
+                    self._date_from_url(
+                        url
+                    )
+                )
+
+            # ------------------------------------------------
+            # 직접 상세페이지 요청 대신 Jina
+            # ------------------------------------------------
+
+            if not published_at:
+
+                try:
+
+                    (
+                        reader_title,
+                        reader_date,
+                    ) = (
+                        self._fetch_reader_metadata(
+                            url
+                        )
+                    )
+
+                    if reader_title:
+
+                        title = (
+                            reader_title
+                        )
+
+                    if reader_date:
+
+                        published_at = (
+                            reader_date
+                        )
+
+                except Exception as exc:
+
+                    print(
+                        "[STL MAIN READER FAIL]",
+                        url,
+                        "|",
+                        exc,
+                    )
+
+            # ------------------------------------------------
+            # RESULT
+            # ------------------------------------------------
+
+            result = (
                 self.make_result(
                     title=title,
                     url=url,
@@ -601,18 +1026,111 @@ class StLouisFedAdapter(
                         self.member.get(
                             "name_en"
                         )
-                        or "Alberto Musalem"
+                        or
+                        "Alberto Musalem"
                     ),
                     text="",
                 )
             )
 
-        return self._deduplicate(
-            results
+            if published_at:
+
+                result[
+                    "published_at"
+                ] = published_at
+
+                result[
+                    "date"
+                ] = published_at
+
+            results.append(
+                result
+            )
+
+        return (
+            self._deduplicate(
+                results
+            )
         )
 
     # ========================================================
-    # DATE
+    # GENERIC DATE PARSER
+    # ========================================================
+
+    def _parse_any_date(
+        self,
+        text,
+    ):
+        """
+        지원 예:
+
+        2026-05-28
+        2026-05-28T10:00:00
+        May 28, 2026
+        May 28 2026
+        Jan. 13, 2026
+        """
+
+        if not text:
+            return None
+
+        value = str(
+            text
+        )
+
+        # ====================================================
+        # ISO DATE
+        # ====================================================
+
+        iso_match = re.search(
+            r"\b"
+            r"(20\d{2})"
+            r"-"
+            r"(\d{1,2})"
+            r"-"
+            r"(\d{1,2})"
+            r"\b",
+            value,
+        )
+
+        if iso_match:
+
+            year = int(
+                iso_match.group(1)
+            )
+
+            month = int(
+                iso_match.group(2)
+            )
+
+            day = int(
+                iso_match.group(3)
+            )
+
+            if (
+                1 <= month <= 12
+                and
+                1 <= day <= 31
+            ):
+
+                return (
+                    f"{year:04d}-"
+                    f"{month:02d}-"
+                    f"{day:02d}"
+                )
+
+        # ====================================================
+        # ENGLISH DATE
+        # ====================================================
+
+        return (
+            self._extract_date_text(
+                value
+            )
+        )
+
+    # ========================================================
+    # ENGLISH DATE
     # ========================================================
 
     def _extract_date_text(
@@ -624,6 +1142,7 @@ class StLouisFedAdapter(
             return None
 
         months = {
+
             "jan": 1,
             "january": 1,
 
@@ -669,7 +1188,9 @@ class StLouisFedAdapter(
             r"\.?\s+"
             r"(\d{1,2}),?\s+"
             r"(20\d{2})",
-            text,
+            str(
+                text
+            ),
             flags=re.I,
         )
 
@@ -696,3 +1217,205 @@ class StLouisFedAdapter(
             f"{month:02d}-"
             f"{day:02d}"
         )
+
+    # ========================================================
+    # DATE FROM URL
+    # ========================================================
+
+    def _date_from_url(
+        self,
+        url,
+    ):
+        """
+        URL slug의 날짜를 읽는다.
+
+        예:
+
+        bloomberg-tv-interview-may-28-2026
+        -> 2026-05-28
+        """
+
+        if not url:
+            return None
+
+        slug = (
+            str(
+                url
+            )
+            .rstrip("/")
+            .split("/")[-1]
+            .replace(
+                "-",
+                " "
+            )
+        )
+
+        return (
+            self._parse_any_date(
+                slug
+            )
+        )
+
+    # ========================================================
+    # DATE FROM CONTEXT
+    # ========================================================
+
+    def _date_from_context(
+        self,
+        context,
+    ):
+
+        if not context:
+            return None
+
+        return (
+            self._parse_any_date(
+                context
+            )
+        )
+
+    # ========================================================
+    # LINK CONTEXT
+    # ========================================================
+
+    def _get_link_context(
+        self,
+        link,
+    ):
+
+        contexts = []
+
+        # ----------------------------------------------------
+        # 링크 자체
+        # ----------------------------------------------------
+
+        own_text = clean_text(
+            link.get_text(
+                " ",
+                strip=True,
+            )
+        )
+
+        if own_text:
+
+            contexts.append(
+                own_text
+            )
+
+        # ----------------------------------------------------
+        # 부모 최대 4단계
+        # ----------------------------------------------------
+
+        parent = (
+            link.parent
+        )
+
+        depth = 0
+
+        while (
+            parent
+            is not None
+            and
+            depth < 4
+        ):
+
+            text = clean_text(
+                parent.get_text(
+                    " ",
+                    strip=True,
+                )
+            )
+
+            if text:
+
+                contexts.append(
+                    text
+                )
+
+            parent = (
+                parent.parent
+            )
+
+            depth += 1
+
+        return clean_text(
+            " ".join(
+                contexts
+            )
+        )
+
+    # ========================================================
+    # DEDUPLICATE
+    # ========================================================
+
+    def _deduplicate(
+        self,
+        results,
+    ):
+
+        deduped = []
+
+        seen = set()
+
+        for item in results:
+
+            url = (
+                item.get(
+                    "url"
+                )
+                or ""
+            ).strip()
+
+            if not url:
+                continue
+
+            normalized_url = (
+                url
+                .rstrip("/")
+                .lower()
+            )
+
+            if normalized_url in seen:
+                continue
+
+            seen.add(
+                normalized_url
+            )
+
+            # ------------------------------------------------
+            # DATE FINAL SYNC
+            # ------------------------------------------------
+
+            final_date = (
+                item.get(
+                    "published_at"
+                )
+                or
+                item.get(
+                    "date"
+                )
+            )
+
+            if final_date:
+
+                normalized_date = (
+                    self._parse_any_date(
+                        final_date
+                    )
+                )
+
+                if normalized_date:
+
+                    item[
+                        "published_at"
+                    ] = normalized_date
+
+                    item[
+                        "date"
+                    ] = normalized_date
+
+            deduped.append(
+                item
+            )
+
+        return deduped
